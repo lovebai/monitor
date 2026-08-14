@@ -1,0 +1,15 @@
+# 也可用 JSON；列表内容使用每行一个 "-"。
+server_url: http://127.0.0.1:8080
+token: 123456
+node_id: web-01
+# 所属分组，控制台按分组展示；留空归入 DEFAULT
+group: web
+interval: 10s
+# TCP 连通性与握手耗时探测；省略端口默认使用 443。
+probe_target: 1.1.1.1:443
+processes:
+  - nginx
+  - Everything
+services:
+  - wscsvc
+  - ssh

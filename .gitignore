@@ -1,0 +1,16 @@
+# 构建产物
+bin/
+*.exe
+
+# Go 本地构建缓存 / 临时测试目录
+.gocache/
+.smoketest/
+
+# 运行数据与真实配置（含 Token，勿提交）
+*.db
+agent.yaml
+server.yaml
+
+# 重复的示例副本（如需纳入版本库，从本文件移除对应行）
+agent/agent.example - 1.yaml
+agent/agent.example2.yaml
