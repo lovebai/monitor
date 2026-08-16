@@ -46,6 +46,20 @@ Copy-Item server.example.yaml server.yaml   # 编辑配置后启动
 go run ./cmd -config server.yaml
 ```
 
+### 兼容旧系统（Windows Server 2008 / Windows 7）
+
+Go 1.21 起官方不再支持 Windows 7 / Server 2008 / Server 2012（最低要求 Windows 10 / Server 2016），
+因此用 Go 1.24 编译的 `agent.exe` 无法在这些旧系统上运行。主项目保持 Go 1.24 不变，
+如需部署到 64 位旧系统，可额外构建专用兼容版：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File build.ps1 -Legacy
+```
+
+产物为 `bin/agent-win2008.exe`（基于 Go 1.20.14，最后一个支持这些系统的官方版本，仅 amd64）。
+首次执行会自动下载 Go 1.20.14 工具链到 `.tools/`（已加入 .gitignore）。
+32 位旧系统不在支持范围内，请升级系统或改用其他采集方案。
+
 ### 配置 Server
 
 `server.yaml`（参考 `server/server.example.yaml`）：

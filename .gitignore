@@ -5,9 +5,12 @@ bin/
 # Go 本地构建缓存 / 临时测试目录
 .gocache/
 .smoketest/
+.tools/
 
 # 运行数据与真实配置（含 Token，勿提交）
 *.db
+*.db-shm
+*.db-wal
 agent.yaml
 server.yaml
 
