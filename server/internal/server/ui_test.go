@@ -13,14 +13,15 @@ func TestHomePageOfflineCardBlocked(t *testing.T) {
 	funcs := template.FuncMap{
 		"pct": percent, "ago": ago, "checks": healthyChecks, "bytes": humanBytes,
 		"rate": rate, "isUp": isUp, "ipv4s": ipv4s, "loadPct": loadPct,
-		"dur": formatUptime,
+		"dur": formatUptime, "sysTime": sysTime,
 	}
 	tmpl := template.Must(template.New("page").Funcs(funcs).Parse(page))
 	on := nodeView{Report: model.Report{
-		NodeID:    "n1",
-		Hostname:  "h1",
-		Timestamp: time.Now(),
-		OS:        model.OSInfo{UptimeSeconds: 3*86400 + 15*3600},
+		NodeID:     "n1",
+		Hostname:   "h1",
+		Timestamp:  time.Now(),
+		OS:         model.OSInfo{UptimeSeconds: 3*86400 + 15*3600},
+		SystemTime: time.Date(2026, 8, 19, 9, 30, 0, 0, time.FixedZone("CST", 8*3600)),
 		Resources: model.Resources{
 			MemoryUsedBytes:  90 * 1024 * 1024 * 1024,
 			MemoryTotalBytes: 100 * 1024 * 1024 * 1024,
@@ -59,8 +60,11 @@ func TestHomePageOfflineCardBlocked(t *testing.T) {
 	if !strings.Contains(html, `data-role="disk" class="danger">85.0%`) {
 		t.Error("disk above threshold should be marked danger")
 	}
-	if !strings.Contains(html, `class="net up" data-role="uptime">在线　3天15时`) {
-		t.Error("node card should show uptime as 3天15时 in light style")
+	if !strings.Contains(html, `class="net up" data-role="uptime">开机时长:　3天15时`) {
+		t.Error("node card should show 开机时长 3天15时 in light style")
+	}
+	if !strings.Contains(html, `class="net up" data-role="sys-time">系统时间:　2026-08-19 09:30:00`) {
+		t.Error("node card should show agent 系统时间 in light style")
 	}
 }
 
@@ -76,6 +80,16 @@ func TestFormatUptime(t *testing.T) {
 		if got := formatUptime(in); got != want {
 			t.Errorf("formatUptime(%d) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestSysTime(t *testing.T) {
+	if got := sysTime(time.Time{}); got != "-" {
+		t.Errorf("sysTime(zero) = %q, want %q", got, "-")
+	}
+	cst := time.FixedZone("CST", 8*3600)
+	if got := sysTime(time.Date(2026, 8, 19, 9, 30, 0, 0, cst)); got != "2026-08-19 09:30:00" {
+		t.Errorf("sysTime = %q, want %q", got, "2026-08-19 09:30:00")
 	}
 }
 

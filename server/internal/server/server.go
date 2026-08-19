@@ -105,6 +105,7 @@ func New(cfg Config) (*Handler, error) {
 		"loadPct":    loadPct,
 		"add":        func(a, b int) int { return a + b },
 		"dur":        formatUptime,
+		"sysTime":    sysTime,
 	}
 	t := template.Must(template.New("dashboard").Funcs(funcs).Parse(page))
 	d := template.Must(template.New("detail").Funcs(funcs).Parse(detailPage2))
@@ -411,6 +412,14 @@ func formatUptime(s uint64) string {
 	default:
 		return fmt.Sprintf("%d秒", s)
 	}
+}
+
+// sysTime 返回节点上报的系统时间（Agent 本机时钟），零值返回 "-"。
+func sysTime(t time.Time) string {
+	if t.IsZero() {
+		return "-"
+	}
+	return t.Format("2006-01-02 15:04:05")
 }
 
 const legacyPage = `legacy`

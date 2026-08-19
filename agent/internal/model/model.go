@@ -7,6 +7,7 @@ type Report struct {
 	Hostname   string             `json:"hostname"`
 	Group      string             `json:"group"`
 	Timestamp  time.Time          `json:"timestamp"`
+	SystemTime time.Time          `json:"system_time"`
 	OS         OSInfo             `json:"os"`
 	Hardware   Hardware           `json:"hardware"`
 	Resources  Resources          `json:"resources"`
