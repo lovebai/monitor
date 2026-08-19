@@ -33,11 +33,14 @@ a{color:#3b719d;text-decoration:none}
 .checks th,.checks td{text-align:left;padding:10px 14px;border-bottom:1px solid #e9eff8;font-size:13px}
 .checks th{color:#647da0;background:#f6fafd;white-space:nowrap}
 .checks tr:last-child td{border-bottom:none}
+.toprow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.topcol table{margin:0}
+.empty{color:#647da0;text-align:center;padding:18px}
 .tag{display:inline-block;border:1px solid #d5e2f2;border-radius:10px;padding:1px 8px;font-size:12px;color:#5d769a;background:#f7fafd}
 .st{font-weight:750}
 .ok{color:#2dcebc}
 .bad{color:#e95169}
-@media(max-width:850px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:850px){.grid{grid-template-columns:repeat(2,1fr)}.toprow{grid-template-columns:1fr}}
 @media(max-width:500px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -58,6 +61,11 @@ a{color:#3b719d;text-decoration:none}
 <div class="row" id="d-nics">{{range .Node.Interfaces}}{{if isUp .}}<div class="pill"><b>{{.Name}}</b>{{.MAC}}<div class="meta">{{range ipv4s .Addresses}}{{.}} {{end}}</div></div>{{end}}{{end}}</div>
 <div class="section">服务与进程</div>
 <div id="d-checks">{{if .Node.Checks}}<div class="checks"><table><tr><th>类型</th><th>名称</th><th>状态与详情</th></tr>{{range .Node.Checks}}<tr><td><span class="tag">{{if eq .Type "process"}}进程{{else}}服务{{end}}</span></td><td>{{.Name}}</td><td>{{if .Healthy}}<span class="st ok">● {{.Detail}}{{if .PIDs}}（PID {{range .PIDs}}{{.}} {{end}}）{{end}}</span>{{else}}<span class="st bad">⚠ {{.Detail}}</span>{{end}}</td></tr>{{end}}</table></div>{{else}}<div class="card" style="color:#647da0">未配置服务与进程检查</div>{{end}}</div>
+<div class="section">进程资源 Top 5</div>
+<div class="toprow">
+<div class="checks topcol" id="d-topcpu">{{if .Node.TopCPU}}<table><tr><th>排名</th><th>应用</th><th>PID</th><th>CPU</th><th>内存</th></tr>{{range $i, $p := .Node.TopCPU}}<tr><td>{{add $i 1}}</td><td>{{.Name}}</td><td>{{.PID}}</td><td>{{printf "%.1f" .CPUPercent}}%</td><td>{{bytes .MemoryBytes}}</td></tr>{{end}}</table>{{else}}<table><tr><th>排名</th><th>应用</th><th>PID</th><th>CPU</th><th>内存</th></tr><tr><td colspan="5" class="empty">暂无数据</td></tr></table>{{end}}</div>
+<div class="checks topcol" id="d-topmem">{{if .Node.TopMemory}}<table><tr><th>排名</th><th>应用</th><th>PID</th><th>内存</th><th>CPU</th></tr>{{range $i, $p := .Node.TopMemory}}<tr><td>{{add $i 1}}</td><td>{{.Name}}</td><td>{{.PID}}</td><td>{{bytes .MemoryBytes}}（{{printf "%.1f" .MemoryPct}}%）</td><td>{{printf "%.1f" .CPUPercent}}%</td></tr>{{end}}</table>{{else}}<table><tr><th>排名</th><th>应用</th><th>PID</th><th>内存</th><th>CPU</th></tr><tr><td colspan="5" class="empty">暂无数据</td></tr></table>{{end}}</div>
+</div>
 <div id="d-alerts">{{range .Node.Alerts}}<div class="warn">● {{.Message}}（{{ago .CreatedAt}}）</div>{{end}}</div>
 </main>
 <script>
@@ -73,6 +81,17 @@ function checksHTML(checks){
     h+='<tr><td><span class="tag">'+(c.type==='process'?'进程':'服务')+'</span></td><td>'+esc(c.name)+'</td><td><span class="st '+(c.healthy?'ok':'bad')+'">'+(c.healthy?'●':'⚠')+' '+esc(c.detail||'')+pids+'</span></td></tr>';
   }
   return h+'</table></div>';
+}
+function procsTopHTML(list, mode){
+  const head='<tr><th>排名</th><th>应用</th><th>PID</th><th>'+(mode==='cpu'?'CPU':'内存')+'</th><th>'+(mode==='cpu'?'内存':'CPU')+'</th></tr>';
+  if(!list||!list.length)return '<table>'+head+'<tr><td colspan="5" class="empty">暂无数据</td></tr></table>';
+  const rows=list.map(function(p,i){
+    const cpu=(p.cpu_percent||0).toFixed(1)+'%';
+    const mem=fmtBytes(p.memory_bytes||0)+'（'+(p.memory_percent||0).toFixed(1)+'%）';
+    const cells=mode==='cpu'?cpu+'</td><td>'+mem:mem+'</td><td>'+cpu;
+    return '<tr><td>'+(i+1)+'</td><td>'+esc(p.name)+'</td><td>'+p.pid+'</td><td>'+cells+'</td></tr>';
+  }).join('');
+  return '<table>'+head+rows+'</table>';
 }
 async function refresh(){
   try{
@@ -102,6 +121,10 @@ async function refresh(){
     if(nics)nics.innerHTML=(n.interfaces||[]).filter(isUp).map(i=>{const v4=(i.addresses||[]).filter(a=>a.indexOf(':')<0).join(' ');return '<div class="pill"><b>'+esc(i.name)+'</b>'+esc(i.mac)+'<div class="meta">'+esc(v4)+'</div></div>'}).join('');
     const checks=document.getElementById('d-checks');
     if(checks)checks.innerHTML=checksHTML(n.checks);
+    const topcpu=document.getElementById('d-topcpu');
+    if(topcpu)topcpu.innerHTML=procsTopHTML(n.top_cpu,'cpu');
+    const topmem=document.getElementById('d-topmem');
+    if(topmem)topmem.innerHTML=procsTopHTML(n.top_memory,'mem');
     const al=document.getElementById('d-alerts');
     if(al)al.innerHTML=(n.alerts||[]).map(a=>'<div class="warn">● '+esc(a.message)+'（'+fmtAgo(a.created_at)+'）</div>').join('');
   }catch(e){}

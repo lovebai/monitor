@@ -101,6 +101,7 @@ func New(cfg Config) (*Handler, error) {
 		"isUp":    isUp,
 		"ipv4s":   ipv4s,
 		"loadPct": loadPct,
+		"add":     func(a, b int) int { return a + b },
 	}
 	t := template.Must(template.New("dashboard").Funcs(funcs).Parse(page))
 	d := template.Must(template.New("detail").Funcs(funcs).Parse(detailPage2))

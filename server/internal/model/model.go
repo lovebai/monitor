@@ -13,6 +13,8 @@ type Report struct {
 	Interfaces []NetworkInterface `json:"interfaces"`
 	Network    Network            `json:"network"`
 	Checks     []Check            `json:"checks"`
+	TopCPU     []ProcessStat      `json:"top_cpu,omitempty"`
+	TopMemory  []ProcessStat      `json:"top_memory,omitempty"`
 }
 type OSInfo struct {
 	Name          string `json:"name"`
@@ -65,4 +67,11 @@ type Check struct {
 	PID     int    `json:"pid,omitempty"`
 	Count   int    `json:"count,omitempty"`
 	PIDs    []int  `json:"pids,omitempty"`
+}
+type ProcessStat struct {
+	Name        string  `json:"name"`
+	PID         int     `json:"pid"`
+	CPUPercent  float64 `json:"cpu_percent"`
+	MemoryBytes uint64  `json:"memory_bytes"`
+	MemoryPct   float64 `json:"memory_percent"`
 }

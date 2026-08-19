@@ -58,3 +58,44 @@ func TestHomePageOfflineCardBlocked(t *testing.T) {
 		t.Error("disk above threshold should be marked danger")
 	}
 }
+
+func TestDetailPageTopProcesses(t *testing.T) {
+	funcs := template.FuncMap{
+		"pct": percent, "ago": ago, "checks": healthyChecks, "bytes": humanBytes,
+		"rate": rate, "isUp": isUp, "ipv4s": ipv4s, "loadPct": loadPct,
+		"add": func(a, b int) int { return a + b },
+	}
+	tmpl := template.Must(template.New("detail").Funcs(funcs).Parse(detailPage2))
+	n := nodeView{Report: model.Report{
+		NodeID:    "n1",
+		Hostname:  "h1",
+		Timestamp: time.Now(),
+		Hardware:  model.Hardware{LogicalCPUs: 4},
+		Resources: model.Resources{MemoryTotalBytes: 8 << 30},
+		TopCPU: []model.ProcessStat{
+			{Name: "chrome", PID: 100, CPUPercent: 42.5, MemoryBytes: 500 << 20},
+			{Name: "java", PID: 200, CPUPercent: 12.3, MemoryBytes: 1 << 30},
+		},
+		TopMemory: []model.ProcessStat{
+			{Name: "java", PID: 200, CPUPercent: 12.3, MemoryBytes: 1 << 30, MemoryPct: 12.5},
+			{Name: "chrome", PID: 100, CPUPercent: 42.5, MemoryBytes: 500 << 20, MemoryPct: 6.3},
+		},
+	}, Online: true}
+	var b strings.Builder
+	if err := tmpl.Execute(&b, struct {
+		Node          nodeView
+		MemThreshold  float64
+		DiskThreshold float64
+	}{n, 80, 80}); err != nil {
+		t.Fatalf("render failed: %v", err)
+	}
+	html := b.String()
+	for _, want := range []string{
+		"进程资源 Top 5", ">1<", "chrome", "42.5%", "500.0 MiB",
+		">2<", "java", "12.5%", "1.0 GiB",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("detail page missing %q", want)
+		}
+	}
+}
