@@ -91,11 +91,19 @@ func TestDetailPageTopProcesses(t *testing.T) {
 	}
 	html := b.String()
 	for _, want := range []string{
-		"进程资源 Top 5", ">1<", "chrome", "42.5%", "500.0 MiB",
-		">2<", "java", "12.5%", "1.0 GiB",
+		"进程资源 Top 5", "CPU 占用 Top 5", "内存占用 Top 5",
+		"<td>1</td><td>chrome</td><td>100</td><td>42.5%</td></tr>",
+		"<td>2</td><td>java</td><td>200</td><td>12.3%</td></tr>",
+		"<td>1</td><td>java</td><td>200</td><td>1.0 GiB（12.5%）</td></tr>",
+		"<td>2</td><td>chrome</td><td>100</td><td>500.0 MiB（6.3%）</td></tr>",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("detail page missing %q", want)
+		}
+	}
+	for _, bad := range []string{"<td>42.5%</td><td>", "<td>1.0 GiB（12.5%）</td><td>", "<th>CPU</th><th>内存", "<th>内存</th><th>CPU"} {
+		if strings.Contains(html, bad) {
+			t.Errorf("detail page should not contain %q (CPU/内存 must stay separate)", bad)
 		}
 	}
 }

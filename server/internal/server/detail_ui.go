@@ -35,6 +35,7 @@ a{color:#3b719d;text-decoration:none}
 .checks tr:last-child td{border-bottom:none}
 .toprow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .topcol table{margin:0}
+.tophead{padding:12px 14px 0;font-weight:750}
 .empty{color:#647da0;text-align:center;padding:18px}
 .tag{display:inline-block;border:1px solid #d5e2f2;border-radius:10px;padding:1px 8px;font-size:12px;color:#5d769a;background:#f7fafd}
 .st{font-weight:750}
@@ -63,8 +64,8 @@ a{color:#3b719d;text-decoration:none}
 <div id="d-checks">{{if .Node.Checks}}<div class="checks"><table><tr><th>类型</th><th>名称</th><th>状态与详情</th></tr>{{range .Node.Checks}}<tr><td><span class="tag">{{if eq .Type "process"}}进程{{else}}服务{{end}}</span></td><td>{{.Name}}</td><td>{{if .Healthy}}<span class="st ok">● {{.Detail}}{{if .PIDs}}（PID {{range .PIDs}}{{.}} {{end}}）{{end}}</span>{{else}}<span class="st bad">⚠ {{.Detail}}</span>{{end}}</td></tr>{{end}}</table></div>{{else}}<div class="card" style="color:#647da0">未配置服务与进程检查</div>{{end}}</div>
 <div class="section">进程资源 Top 5</div>
 <div class="toprow">
-<div class="checks topcol" id="d-topcpu">{{if .Node.TopCPU}}<table><tr><th>排名</th><th>应用</th><th>PID</th><th>CPU</th><th>内存</th></tr>{{range $i, $p := .Node.TopCPU}}<tr><td>{{add $i 1}}</td><td>{{.Name}}</td><td>{{.PID}}</td><td>{{printf "%.1f" .CPUPercent}}%</td><td>{{bytes .MemoryBytes}}</td></tr>{{end}}</table>{{else}}<table><tr><th>排名</th><th>应用</th><th>PID</th><th>CPU</th><th>内存</th></tr><tr><td colspan="5" class="empty">暂无数据</td></tr></table>{{end}}</div>
-<div class="checks topcol" id="d-topmem">{{if .Node.TopMemory}}<table><tr><th>排名</th><th>应用</th><th>PID</th><th>内存</th><th>CPU</th></tr>{{range $i, $p := .Node.TopMemory}}<tr><td>{{add $i 1}}</td><td>{{.Name}}</td><td>{{.PID}}</td><td>{{bytes .MemoryBytes}}（{{printf "%.1f" .MemoryPct}}%）</td><td>{{printf "%.1f" .CPUPercent}}%</td></tr>{{end}}</table>{{else}}<table><tr><th>排名</th><th>应用</th><th>PID</th><th>内存</th><th>CPU</th></tr><tr><td colspan="5" class="empty">暂无数据</td></tr></table>{{end}}</div>
+<div class="checks topcol" id="d-topcpu">{{if .Node.TopCPU}}<div class="tophead">CPU 占用 Top 5</div><table><tr><th>排名</th><th>应用</th><th>PID</th><th>CPU</th></tr>{{range $i, $p := .Node.TopCPU}}<tr><td>{{add $i 1}}</td><td>{{.Name}}</td><td>{{.PID}}</td><td>{{printf "%.1f" .CPUPercent}}%</td></tr>{{end}}</table>{{else}}<div class="tophead">CPU 占用 Top 5</div><table><tr><th>排名</th><th>应用</th><th>PID</th><th>CPU</th></tr><tr><td colspan="4" class="empty">暂无数据</td></tr></table>{{end}}</div>
+<div class="checks topcol" id="d-topmem">{{if .Node.TopMemory}}<div class="tophead">内存占用 Top 5</div><table><tr><th>排名</th><th>应用</th><th>PID</th><th>内存</th></tr>{{range $i, $p := .Node.TopMemory}}<tr><td>{{add $i 1}}</td><td>{{.Name}}</td><td>{{.PID}}</td><td>{{bytes .MemoryBytes}}（{{printf "%.1f" .MemoryPct}}%）</td></tr>{{end}}</table>{{else}}<div class="tophead">内存占用 Top 5</div><table><tr><th>排名</th><th>应用</th><th>PID</th><th>内存</th></tr><tr><td colspan="4" class="empty">暂无数据</td></tr></table>{{end}}</div>
 </div>
 <div id="d-alerts">{{range .Node.Alerts}}<div class="warn">● {{.Message}}（{{ago .CreatedAt}}）</div>{{end}}</div>
 </main>
@@ -83,15 +84,14 @@ function checksHTML(checks){
   return h+'</table></div>';
 }
 function procsTopHTML(list, mode){
-  const head='<tr><th>排名</th><th>应用</th><th>PID</th><th>'+(mode==='cpu'?'CPU':'内存')+'</th><th>'+(mode==='cpu'?'内存':'CPU')+'</th></tr>';
-  if(!list||!list.length)return '<table>'+head+'<tr><td colspan="5" class="empty">暂无数据</td></tr></table>';
+  const title='<div class="tophead">'+(mode==='cpu'?'CPU 占用 Top 5':'内存占用 Top 5')+'</div>';
+  const head='<tr><th>排名</th><th>应用</th><th>PID</th><th>'+(mode==='cpu'?'CPU':'内存')+'</th></tr>';
+  if(!list||!list.length)return title+'<table>'+head+'<tr><td colspan="4" class="empty">暂无数据</td></tr></table>';
   const rows=list.map(function(p,i){
-    const cpu=(p.cpu_percent||0).toFixed(1)+'%';
-    const mem=fmtBytes(p.memory_bytes||0)+'（'+(p.memory_percent||0).toFixed(1)+'%）';
-    const cells=mode==='cpu'?cpu+'</td><td>'+mem:mem+'</td><td>'+cpu;
-    return '<tr><td>'+(i+1)+'</td><td>'+esc(p.name)+'</td><td>'+p.pid+'</td><td>'+cells+'</td></tr>';
+    const cell=mode==='cpu'?(p.cpu_percent||0).toFixed(1)+'%':fmtBytes(p.memory_bytes||0)+'（'+(p.memory_percent||0).toFixed(1)+'%）';
+    return '<tr><td>'+(i+1)+'</td><td>'+esc(p.name)+'</td><td>'+p.pid+'</td><td>'+cell+'</td></tr>';
   }).join('');
-  return '<table>'+head+rows+'</table>';
+  return title+'<table>'+head+rows+'</table>';
 }
 async function refresh(){
   try{
