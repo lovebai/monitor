@@ -87,5 +87,5 @@ func maskToken(t string) string {
 	if len(t) <= 4 {
 		return "****"
 	}
-	return t[:4] + "****"
+	return "****"
 }
