@@ -56,7 +56,7 @@ func printAgentConfig(path string, c agent.Config) {
 	log.Printf("探测目标: %s", targetText(c.ProbeTarget))
 	log.Printf("进程检查: %s", listText(c.Processes))
 	log.Printf("服务检查: %s", listText(c.Services))
-	log.Printf("鉴权 Token: %s", maskToken(c.Token))
+	log.Printf("鉴权 Token: ********")
 }
 
 func groupText(g string) string {
@@ -82,10 +82,4 @@ func listText(l []string) string {
 		return "未配置"
 	}
 	return strings.Join(l, ", ")
-}
-func maskToken(t string) string {
-	if len(t) <= 4 {
-		return "****"
-	}
-	return "****"
 }

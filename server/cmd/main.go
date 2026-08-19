@@ -49,12 +49,5 @@ func printServerConfig(path string, c server.FileConfig) {
 	log.Printf("延迟阈值: %.0f ms", c.LatencyThresholdMS)
 	log.Printf("内存阈值: %.0f%%", c.MemoryThresholdPct)
 	log.Printf("磁盘阈值: %.0f%%", c.DiskThresholdPct)
-	log.Printf("鉴权 Token: %s", maskToken(c.Token))
-}
-
-func maskToken(t string) string {
-	if len(t) <= 4 {
-		return "****"
-	}
-	return t[:4] + "****"
+	log.Printf("鉴权 Token: ********")
 }
