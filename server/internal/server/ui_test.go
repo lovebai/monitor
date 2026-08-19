@@ -60,11 +60,8 @@ func TestHomePageOfflineCardBlocked(t *testing.T) {
 	if !strings.Contains(html, `data-role="disk" class="danger">85.0%`) {
 		t.Error("disk above threshold should be marked danger")
 	}
-	if !strings.Contains(html, `class="net up" data-role="uptime">开机时长:　3天15时`) {
-		t.Error("node card should show 开机时长 3天15时 in light style")
-	}
-	if !strings.Contains(html, `class="net up" data-role="sys-time">系统时间:　2026-08-19 09:30:00`) {
-		t.Error("node card should show agent 系统时间 in light style")
+	if !strings.Contains(html, `class="net up" data-role="uptime">开机时长:　3天15时　|　系统时间:　2026-08-19 09:30:00`) {
+		t.Error("node card should show 开机时长 and 系统时间 on the same line in light style")
 	}
 }
 
