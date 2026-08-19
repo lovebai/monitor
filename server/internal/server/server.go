@@ -104,6 +104,7 @@ func New(cfg Config) (*Handler, error) {
 		"ipv4s":      ipv4s,
 		"loadPct":    loadPct,
 		"add":        func(a, b int) int { return a + b },
+		"dur":        formatUptime,
 	}
 	t := template.Must(template.New("dashboard").Funcs(funcs).Parse(page))
 	d := template.Must(template.New("detail").Funcs(funcs).Parse(detailPage2))
@@ -392,6 +393,24 @@ func humanBytes(v uint64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %ciB", float64(v)/div, "KMGT"[exp])
+}
+
+// formatUptime 将秒数格式化为「3天15时」「5时30分」「30分」等可读时长。
+func formatUptime(s uint64) string {
+	const day = uint64(86400)
+	d := s / day
+	h := s % day / 3600
+	m := s % 3600 / 60
+	switch {
+	case d > 0:
+		return fmt.Sprintf("%d天%d时", d, h)
+	case h > 0:
+		return fmt.Sprintf("%d时%d分", h, m)
+	case m > 0:
+		return fmt.Sprintf("%d分", m)
+	default:
+		return fmt.Sprintf("%d秒", s)
+	}
 }
 
 const legacyPage = `legacy`

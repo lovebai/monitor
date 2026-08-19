@@ -13,12 +13,14 @@ func TestHomePageOfflineCardBlocked(t *testing.T) {
 	funcs := template.FuncMap{
 		"pct": percent, "ago": ago, "checks": healthyChecks, "bytes": humanBytes,
 		"rate": rate, "isUp": isUp, "ipv4s": ipv4s, "loadPct": loadPct,
+		"dur": formatUptime,
 	}
 	tmpl := template.Must(template.New("page").Funcs(funcs).Parse(page))
 	on := nodeView{Report: model.Report{
 		NodeID:    "n1",
 		Hostname:  "h1",
 		Timestamp: time.Now(),
+		OS:        model.OSInfo{UptimeSeconds: 3*86400 + 15*3600},
 		Resources: model.Resources{
 			MemoryUsedBytes:  90 * 1024 * 1024 * 1024,
 			MemoryTotalBytes: 100 * 1024 * 1024 * 1024,
@@ -56,6 +58,24 @@ func TestHomePageOfflineCardBlocked(t *testing.T) {
 	}
 	if !strings.Contains(html, `data-role="disk" class="danger">85.0%`) {
 		t.Error("disk above threshold should be marked danger")
+	}
+	if !strings.Contains(html, `class="net up" data-role="uptime">在线　3天15时`) {
+		t.Error("node card should show uptime as 3天15时 in light style")
+	}
+}
+
+func TestFormatUptime(t *testing.T) {
+	cases := map[uint64]string{
+		0:                        "0秒",
+		45:                       "45秒",
+		1800:                     "30分",
+		5*3600 + 30*60:           "5时30分",
+		3*86400 + 15*3600 + 1200: "3天15时",
+	}
+	for in, want := range cases {
+		if got := formatUptime(in); got != want {
+			t.Errorf("formatUptime(%d) = %q, want %q", in, got, want)
+		}
 	}
 }
 
