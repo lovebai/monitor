@@ -51,7 +51,7 @@ a{color:#3b719d;text-decoration:none}
 <div class="card"><label>CPU</label><b id="d-cpu">{{printf "%.1f" .Node.Resources.CPUPercent}}%</b></div>
 <div class="card"><label>网络延迟</label><b id="d-lat">{{if .Node.Network.Reachable}}{{printf "%.1f ms" .Node.Network.LatencyMS}}{{else}}不可达{{end}}</b></div>
 <div class="card"><label>负载</label><b id="d-load">{{printf "%.2f" .Node.Resources.Load1}} / {{printf "%.2f" .Node.Resources.Load5}}</b></div>
-<div class="card"><label>运行时长</label><b id="d-uptime">{{dur .Node.OS.UptimeSeconds}}</b></div>
+<div class="card"><label>开机时长</label><b id="d-uptime">{{dur .Node.OS.UptimeSeconds}}</b></div>
 </section>
 <div class="section">内存</div>
 <div class="card"><label>内存</label><b id="d-mem" class="{{if ge (pct .Node.Resources.MemoryUsedBytes .Node.Resources.MemoryTotalBytes) $.MemThreshold}}danger{{end}}">{{bytes .Node.Resources.MemoryUsedBytes}} / {{bytes .Node.Resources.MemoryTotalBytes}}</b><div id="d-mempct" class="meta">{{printf "%.1f" (pct .Node.Resources.MemoryUsedBytes .Node.Resources.MemoryTotalBytes)}}%</div><div class="bar"><i id="d-membar" class="{{if ge (pct .Node.Resources.MemoryUsedBytes .Node.Resources.MemoryTotalBytes) $.MemThreshold}}danger{{end}}" style="width:{{printf "%.0f" (pct .Node.Resources.MemoryUsedBytes .Node.Resources.MemoryTotalBytes)}}%"></i></div></div>
