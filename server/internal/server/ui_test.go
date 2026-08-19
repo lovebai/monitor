@@ -63,7 +63,9 @@ func TestDetailPageTopProcesses(t *testing.T) {
 	funcs := template.FuncMap{
 		"pct": percent, "ago": ago, "checks": healthyChecks, "bytes": humanBytes,
 		"rate": rate, "isUp": isUp, "ipv4s": ipv4s, "loadPct": loadPct,
-		"add": func(a, b int) int { return a + b },
+		"procChecks": func(c []model.Check) []model.Check { return checksByType(c, "process") },
+		"svcChecks":  func(c []model.Check) []model.Check { return checksByType(c, "service") },
+		"add":        func(a, b int) int { return a + b },
 	}
 	tmpl := template.Must(template.New("detail").Funcs(funcs).Parse(detailPage2))
 	n := nodeView{Report: model.Report{
@@ -72,6 +74,10 @@ func TestDetailPageTopProcesses(t *testing.T) {
 		Timestamp: time.Now(),
 		Hardware:  model.Hardware{LogicalCPUs: 4},
 		Resources: model.Resources{MemoryTotalBytes: 8 << 30},
+		Checks: []model.Check{
+			{Type: "process", Name: "nginx", Healthy: true, Detail: "运行中 ×2", PIDs: []int{123, 124}},
+			{Type: "service", Name: "sshd", Healthy: false, Detail: "未运行"},
+		},
 		TopCPU: []model.ProcessStat{
 			{Name: "chrome", PID: 100, CPUPercent: 42.5, MemoryBytes: 500 << 20},
 			{Name: "java", PID: 200, CPUPercent: 12.3, MemoryBytes: 1 << 30},
@@ -91,6 +97,9 @@ func TestDetailPageTopProcesses(t *testing.T) {
 	}
 	html := b.String()
 	for _, want := range []string{
+		"进程检查", "服务检查",
+		"<td>nginx</td><td><span class=\"st ok\">● 运行中 ×2（PID 123 124 ）</span></td>",
+		"<td>sshd</td><td><span class=\"st bad\">⚠ 未运行</span></td>",
 		"进程资源 Top 5", "CPU 占用 Top 5", "内存占用 Top 5",
 		"<td>1</td><td>chrome</td><td>100</td><td>42.5%</td></tr>",
 		"<td>2</td><td>java</td><td>200</td><td>12.3%</td></tr>",
@@ -105,5 +114,8 @@ func TestDetailPageTopProcesses(t *testing.T) {
 		if strings.Contains(html, bad) {
 			t.Errorf("detail page should not contain %q (CPU/内存 must stay separate)", bad)
 		}
+	}
+	if strings.Contains(html, "<th>类型</th>") {
+		t.Error("detail page should not contain a 类型 column; 进程/服务 must be separate modules")
 	}
 }

@@ -93,15 +93,17 @@ func New(cfg Config) (*Handler, error) {
 		return nil, err
 	}
 	funcs := template.FuncMap{
-		"pct":     percent,
-		"ago":     ago,
-		"checks":  healthyChecks,
-		"bytes":   humanBytes,
-		"rate":    rate,
-		"isUp":    isUp,
-		"ipv4s":   ipv4s,
-		"loadPct": loadPct,
-		"add":     func(a, b int) int { return a + b },
+		"pct":        percent,
+		"ago":        ago,
+		"checks":     healthyChecks,
+		"procChecks": func(c []model.Check) []model.Check { return checksByType(c, "process") },
+		"svcChecks":  func(c []model.Check) []model.Check { return checksByType(c, "service") },
+		"bytes":      humanBytes,
+		"rate":       rate,
+		"isUp":       isUp,
+		"ipv4s":      ipv4s,
+		"loadPct":    loadPct,
+		"add":        func(a, b int) int { return a + b },
 	}
 	t := template.Must(template.New("dashboard").Funcs(funcs).Parse(page))
 	d := template.Must(template.New("detail").Funcs(funcs).Parse(detailPage2))
@@ -369,6 +371,15 @@ func healthyChecks(c []model.Check) string {
 		return fmt.Sprintf("%d 项异常", bad)
 	}
 	return "全部正常"
+}
+func checksByType(c []model.Check, typ string) []model.Check {
+	var out []model.Check
+	for _, x := range c {
+		if x.Type == typ {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 func humanBytes(v uint64) string {
 	const unit = 1024

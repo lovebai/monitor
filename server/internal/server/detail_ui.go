@@ -61,7 +61,10 @@ a{color:#3b719d;text-decoration:none}
 <div class="section">网卡</div>
 <div class="row" id="d-nics">{{range .Node.Interfaces}}{{if isUp .}}<div class="pill"><b>{{.Name}}</b>{{.MAC}}<div class="meta">{{range ipv4s .Addresses}}{{.}} {{end}}</div></div>{{end}}{{end}}</div>
 <div class="section">服务与进程</div>
-<div id="d-checks">{{if .Node.Checks}}<div class="checks"><table><tr><th>类型</th><th>名称</th><th>状态与详情</th></tr>{{range .Node.Checks}}<tr><td><span class="tag">{{if eq .Type "process"}}进程{{else}}服务{{end}}</span></td><td>{{.Name}}</td><td>{{if .Healthy}}<span class="st ok">● {{.Detail}}{{if .PIDs}}（PID {{range .PIDs}}{{.}} {{end}}）{{end}}</span>{{else}}<span class="st bad">⚠ {{.Detail}}</span>{{end}}</td></tr>{{end}}</table></div>{{else}}<div class="card" style="color:#647da0">未配置服务与进程检查</div>{{end}}</div>
+<div class="toprow">
+<div class="checks topcol" id="d-checks-proc"><div class="tophead">进程检查</div>{{$procs := procChecks .Node.Checks}}{{if $procs}}<table><tr><th>名称</th><th>状态与详情</th></tr>{{range $procs}}<tr><td>{{.Name}}</td><td>{{if .Healthy}}<span class="st ok">● {{.Detail}}{{if .PIDs}}（PID {{range .PIDs}}{{.}} {{end}}）{{end}}</span>{{else}}<span class="st bad">⚠ {{.Detail}}</span>{{end}}</td></tr>{{end}}</table>{{else}}<table><tr><th>名称</th><th>状态与详情</th></tr><tr><td colspan="2" class="empty">未配置进程检查</td></tr></table>{{end}}</div>
+<div class="checks topcol" id="d-checks-svc"><div class="tophead">服务检查</div>{{$svcs := svcChecks .Node.Checks}}{{if $svcs}}<table><tr><th>名称</th><th>状态与详情</th></tr>{{range $svcs}}<tr><td>{{.Name}}</td><td>{{if .Healthy}}<span class="st ok">● {{.Detail}}</span>{{else}}<span class="st bad">⚠ {{.Detail}}</span>{{end}}</td></tr>{{end}}</table>{{else}}<table><tr><th>名称</th><th>状态与详情</th></tr><tr><td colspan="2" class="empty">未配置服务检查</td></tr></table>{{end}}</div>
+</div>
 <div class="section">进程资源 Top 5</div>
 <div class="toprow">
 <div class="checks topcol" id="d-topcpu">{{if .Node.TopCPU}}<div class="tophead">CPU 占用 Top 5</div><table><tr><th>排名</th><th>应用</th><th>PID</th><th>CPU</th></tr>{{range $i, $p := .Node.TopCPU}}<tr><td>{{add $i 1}}</td><td>{{.Name}}</td><td>{{.PID}}</td><td>{{printf "%.1f" .CPUPercent}}%</td></tr>{{end}}</table>{{else}}<div class="tophead">CPU 占用 Top 5</div><table><tr><th>排名</th><th>应用</th><th>PID</th><th>CPU</th></tr><tr><td colspan="4" class="empty">暂无数据</td></tr></table>{{end}}</div>
@@ -74,14 +77,21 @@ function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;',
 function fmtBytes(v){v=+v||0;if(v<1024)return v+' B';const u=['KiB','MiB','GiB','TiB'];let i=-1;do{v/=1024;i++}while(v>=1024&&i<3);return v.toFixed(1)+' '+u[i]}
 function fmtAgo(t){if(!t)return '';const s=(Date.now()-new Date(t).getTime())/1000;return s<60?Math.max(0,Math.round(s))+' 秒前':Math.round(s/60)+' 分钟前'}
 function isUp(i){return i.flags&&i.flags.indexOf('up')>=0&&!!i.mac}
-function checksHTML(checks){
-  if(!checks||!checks.length)return '<div class="card" style="color:#647da0">未配置服务与进程检查</div>';
-  let h='<div class="checks"><table><tr><th>类型</th><th>名称</th><th>状态与详情</th></tr>';
-  for(const c of checks){
+function checksModuleHTML(title,list,emptyText){
+  const head='<tr><th>名称</th><th>状态与详情</th></tr>';
+  if(!list||!list.length)return '<div class="tophead">'+title+'</div><table>'+head+'<tr><td colspan="2" class="empty">'+emptyText+'</td></tr></table>';
+  const rows=list.map(function(c){
     const pids=(c.pids||[]).length?('（PID '+c.pids.join(' ')+'）'):'';
-    h+='<tr><td><span class="tag">'+(c.type==='process'?'进程':'服务')+'</span></td><td>'+esc(c.name)+'</td><td><span class="st '+(c.healthy?'ok':'bad')+'">'+(c.healthy?'●':'⚠')+' '+esc(c.detail||'')+pids+'</span></td></tr>';
-  }
-  return h+'</table></div>';
+    return '<tr><td>'+esc(c.name)+'</td><td><span class="st '+(c.healthy?'ok':'bad')+'">'+(c.healthy?'●':'⚠')+' '+esc(c.detail||'')+pids+'</span></td></tr>';
+  }).join('');
+  return '<div class="tophead">'+title+'</div><table>'+head+rows+'</table>';
+}
+function checksHTML(checks){
+  const list=checks||[];
+  return {
+    proc: checksModuleHTML('进程检查',list.filter(c=>c.type==='process'),'未配置进程检查'),
+    svc: checksModuleHTML('服务检查',list.filter(c=>c.type==='service'),'未配置服务检查')
+  };
 }
 function procsTopHTML(list, mode){
   const title='<div class="tophead">'+(mode==='cpu'?'CPU 占用 Top 5':'内存占用 Top 5')+'</div>';
@@ -119,8 +129,11 @@ async function refresh(){
     if(disks)disks.innerHTML=(r.disks||[]).map(d=>{const danger=(d.used_percent||0)>=diskThr;return '<div class="pill disk"><b>'+esc(d.mountpoint)+'</b>'+fmtBytes(d.used_bytes)+' / '+fmtBytes(d.total_bytes)+'<div class="meta'+(danger?' danger':'')+'">'+((d.used_percent||0).toFixed(1))+'%</div><div class="bar"><i'+(danger?' class="danger"':'')+' style="width:'+Math.min(100,d.used_percent||0)+'%"></i></div></div>'}).join('');
     const nics=document.getElementById('d-nics');
     if(nics)nics.innerHTML=(n.interfaces||[]).filter(isUp).map(i=>{const v4=(i.addresses||[]).filter(a=>a.indexOf(':')<0).join(' ');return '<div class="pill"><b>'+esc(i.name)+'</b>'+esc(i.mac)+'<div class="meta">'+esc(v4)+'</div></div>'}).join('');
-    const checks=document.getElementById('d-checks');
-    if(checks)checks.innerHTML=checksHTML(n.checks);
+    const chk=checksHTML(n.checks);
+    const chkp=document.getElementById('d-checks-proc');
+    if(chkp)chkp.innerHTML=chk.proc;
+    const chks=document.getElementById('d-checks-svc');
+    if(chks)chks.innerHTML=chk.svc;
     const topcpu=document.getElementById('d-topcpu');
     if(topcpu)topcpu.innerHTML=procsTopHTML(n.top_cpu,'cpu');
     const topmem=document.getElementById('d-topmem');
