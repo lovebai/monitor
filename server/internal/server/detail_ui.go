@@ -37,7 +37,6 @@ a{color:#3b719d;text-decoration:none}
 .topcol table{margin:0}
 .tophead{padding:12px 14px 0;font-weight:750}
 .empty{color:#647da0;text-align:center;padding:18px}
-.tag{display:inline-block;border:1px solid #d5e2f2;border-radius:10px;padding:1px 8px;font-size:12px;color:#5d769a;background:#f7fafd}
 .st{font-weight:750}
 .ok{color:#2dcebc}
 .bad{color:#e95169}
@@ -52,10 +51,10 @@ a{color:#3b719d;text-decoration:none}
 <div class="card"><label>CPU</label><b id="d-cpu">{{printf "%.1f" .Node.Resources.CPUPercent}}%</b></div>
 <div class="card"><label>网络延迟</label><b id="d-lat">{{if .Node.Network.Reachable}}{{printf "%.1f ms" .Node.Network.LatencyMS}}{{else}}不可达{{end}}</b></div>
 <div class="card"><label>负载</label><b id="d-load">{{printf "%.2f" .Node.Resources.Load1}} / {{printf "%.2f" .Node.Resources.Load5}}</b></div>
-<div class="card"><label>运行时长</label><b id="d-uptime">{{.Node.OS.UptimeSeconds}} 秒</b></div>
+<div class="card"><label>运行时长</label><b id="d-uptime">{{dur .Node.OS.UptimeSeconds}}</b></div>
 </section>
 <div class="section">内存</div>
-<div class="card"><label>内存</label><b id="d-mem" class="{{if ge (pct .Node.Resources.MemoryUsedBytes .Node.Resources.MemoryTotalBytes) $.MemThreshold}}danger{{end}}">{{bytes .Node.Resources.MemoryUsedBytes}} / {{bytes .Node.Resources.MemoryTotalBytes}}</b><div class="meta" id="d-mempct" class="{{if ge (pct .Node.Resources.MemoryUsedBytes .Node.Resources.MemoryTotalBytes) $.MemThreshold}}danger{{end}}">{{printf "%.1f" (pct .Node.Resources.MemoryUsedBytes .Node.Resources.MemoryTotalBytes)}}%</div><div class="bar"><i id="d-membar" class="{{if ge (pct .Node.Resources.MemoryUsedBytes .Node.Resources.MemoryTotalBytes) $.MemThreshold}}danger{{end}}" style="width:{{printf "%.0f" (pct .Node.Resources.MemoryUsedBytes .Node.Resources.MemoryTotalBytes)}}%"></i></div></div>
+<div class="card"><label>内存</label><b id="d-mem" class="{{if ge (pct .Node.Resources.MemoryUsedBytes .Node.Resources.MemoryTotalBytes) $.MemThreshold}}danger{{end}}">{{bytes .Node.Resources.MemoryUsedBytes}} / {{bytes .Node.Resources.MemoryTotalBytes}}</b><div id="d-mempct" class="meta">{{printf "%.1f" (pct .Node.Resources.MemoryUsedBytes .Node.Resources.MemoryTotalBytes)}}%</div><div class="bar"><i id="d-membar" class="{{if ge (pct .Node.Resources.MemoryUsedBytes .Node.Resources.MemoryTotalBytes) $.MemThreshold}}danger{{end}}" style="width:{{printf "%.0f" (pct .Node.Resources.MemoryUsedBytes .Node.Resources.MemoryTotalBytes)}}%"></i></div></div>
 <div class="section">磁盘</div>
 <div class="row" id="d-disks">{{range .Node.Resources.Disks}}<div class="pill disk"><b>{{.Mountpoint}}</b>{{bytes .UsedBytes}} / {{bytes .TotalBytes}}<div class="meta {{if ge .UsedPercent $.DiskThreshold}}danger{{end}}">{{printf "%.1f" .UsedPercent}}%</div><div class="bar"><i class="{{if ge .UsedPercent $.DiskThreshold}}danger{{end}}" style="width:{{printf "%.0f" .UsedPercent}}%"></i></div></div>{{end}}</div>
 <div class="section">网卡</div>
@@ -75,6 +74,7 @@ a{color:#3b719d;text-decoration:none}
 <script>
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function fmtBytes(v){v=+v||0;if(v<1024)return v+' B';const u=['KiB','MiB','GiB','TiB'];let i=-1;do{v/=1024;i++}while(v>=1024&&i<3);return v.toFixed(1)+' '+u[i]}
+function fmtDur(s){s=+s||0;const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);if(d>0)return d+'天'+h+'时';if(h>0)return h+'时'+m+'分';if(m>0)return m+'分';return Math.floor(s)+'秒'}
 function fmtAgo(t){if(!t)return '';const s=(Date.now()-new Date(t).getTime())/1000;return s<60?Math.max(0,Math.round(s))+' 秒前':Math.round(s/60)+' 分钟前'}
 function isUp(i){return i.flags&&i.flags.indexOf('up')>=0&&!!i.mac}
 function checksModuleHTML(title,list,emptyText){
@@ -116,7 +116,7 @@ async function refresh(){
     set('d-cpu',()=>(r.cpu_percent||0).toFixed(1)+'%');
     set('d-lat',()=>nw.reachable?(nw.latency_ms||0).toFixed(1)+' ms':'不可达');
     set('d-load',()=>(r.load_1||0).toFixed(2)+' / '+(r.load_5||0).toFixed(2));
-    set('d-uptime',()=>(n.os&&n.os.uptime_seconds?n.os.uptime_seconds:0)+' 秒');
+    set('d-uptime',()=>fmtDur(n.os&&n.os.uptime_seconds?n.os.uptime_seconds:0));
     set('d-mem',()=>fmtBytes(r.memory_used_bytes||0)+' / '+fmtBytes(r.memory_total_bytes||0));
     const mp=r.memory_total_bytes?(r.memory_used_bytes||0)*100/r.memory_total_bytes:0;
     const mpe=document.getElementById('d-mempct');

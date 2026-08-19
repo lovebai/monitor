@@ -150,13 +150,12 @@ func procRSS(pid int) uint64 {
 
 // windowsTopProcesses 通过 CIM 性能计数器采集各进程 CPU 占用率与内存工作集。
 func windowsTopProcesses() []model.ProcessStat {
-	const script = `[Console]::OutputEncoding=[Text.Encoding]::UTF8;$os=Get-CimInstance Win32_OperatingSystem;$total=[uint64]$os.TotalVisibleMemorySize*1024;$p=@(Get-CimInstance Win32_PerfFormattedData_PerfProc_Process -ErrorAction SilentlyContinue|Where-Object {$_.Name -ne '_Total' -and $_.Name -ne 'Idle' -and $_.IDProcess -gt 0}|Select-Object Name,IDProcess,PercentProcessorTime,WorkingSet);[pscustomobject]@{Total=$total;Procs=@($p)}|ConvertTo-Json -Compress`
+	const script = `[Console]::OutputEncoding=[Text.Encoding]::UTF8;$p=@(Get-CimInstance Win32_PerfFormattedData_PerfProc_Process -ErrorAction SilentlyContinue|Where-Object {$_.Name -ne '_Total' -and $_.Name -ne 'Idle' -and $_.IDProcess -gt 0}|Select-Object Name,IDProcess,PercentProcessorTime,WorkingSet);[pscustomobject]@{Procs=@($p)}|ConvertTo-Json -Compress`
 	b, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
 	if err != nil || strings.TrimSpace(string(b)) == "" {
 		return nil
 	}
 	var v struct {
-		Total uint64
 		Procs []struct {
 			Name                 string
 			IDProcess            int

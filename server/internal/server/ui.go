@@ -12,7 +12,7 @@ body{margin:0;color:#17233a;font:14px system-ui;background-color:#edf3fa;backgro
 header{height:55px;display:flex;align-items:center;justify-content:space-between}
 .brand{font-size:19px;font-weight:750}
 .dot{display:inline-block;width:14px;height:14px;border-radius:50%;background:#2ed5c3;box-shadow:0 0 18px #2ed5c3;margin-right:12px}
-.live,.tag{border:1px solid #aee9dc;background:white;border-radius:22px;padding:7px 12px;color:#20b99c}
+.live{border:1px solid #aee9dc;background:white;border-radius:22px;padding:7px 12px;color:#20b99c}
 .sound{border:1px solid #aee9dc;background:white;border-radius:22px;padding:7px 12px;color:#20b99c;cursor:pointer;font:inherit;font-size:13px}
 .sound.off{color:#a0b0c5;border-color:#e2eaf4}
 .sound.active{border-color:#f3a6b3;background:#fff0f2;color:#e95169}

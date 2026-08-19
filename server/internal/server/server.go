@@ -95,7 +95,6 @@ func New(cfg Config) (*Handler, error) {
 	funcs := template.FuncMap{
 		"pct":        percent,
 		"ago":        ago,
-		"checks":     healthyChecks,
 		"procChecks": func(c []model.Check) []model.Check { return checksByType(c, "process") },
 		"svcChecks":  func(c []model.Check) []model.Check { return checksByType(c, "service") },
 		"bytes":      humanBytes,
@@ -359,21 +358,6 @@ func ago(t time.Time) string {
 	}
 	return fmt.Sprintf("%.0f 分钟前", d.Minutes())
 }
-func healthyChecks(c []model.Check) string {
-	if len(c) == 0 {
-		return "未配置"
-	}
-	bad := 0
-	for _, x := range c {
-		if !x.Healthy {
-			bad++
-		}
-	}
-	if bad > 0 {
-		return fmt.Sprintf("%d 项异常", bad)
-	}
-	return "全部正常"
-}
 func checksByType(c []model.Check, typ string) []model.Check {
 	var out []model.Check
 	for _, x := range c {
@@ -421,5 +405,3 @@ func sysTime(t time.Time) string {
 	}
 	return t.Format("2006-01-02 15:04:05")
 }
-
-const legacyPage = `legacy`

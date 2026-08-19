@@ -11,7 +11,7 @@ import (
 
 func TestHomePageOfflineCardBlocked(t *testing.T) {
 	funcs := template.FuncMap{
-		"pct": percent, "ago": ago, "checks": healthyChecks, "bytes": humanBytes,
+		"pct": percent, "ago": ago, "bytes": humanBytes,
 		"rate": rate, "isUp": isUp, "ipv4s": ipv4s, "loadPct": loadPct,
 		"dur": formatUptime, "sysTime": sysTime,
 	}
@@ -92,11 +92,12 @@ func TestSysTime(t *testing.T) {
 
 func TestDetailPageTopProcesses(t *testing.T) {
 	funcs := template.FuncMap{
-		"pct": percent, "ago": ago, "checks": healthyChecks, "bytes": humanBytes,
+		"pct": percent, "ago": ago, "bytes": humanBytes,
 		"rate": rate, "isUp": isUp, "ipv4s": ipv4s, "loadPct": loadPct,
 		"procChecks": func(c []model.Check) []model.Check { return checksByType(c, "process") },
 		"svcChecks":  func(c []model.Check) []model.Check { return checksByType(c, "service") },
 		"add":        func(a, b int) int { return a + b },
+		"dur":        formatUptime,
 	}
 	tmpl := template.Must(template.New("detail").Funcs(funcs).Parse(detailPage2))
 	n := nodeView{Report: model.Report{
