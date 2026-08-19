@@ -21,7 +21,8 @@ header{height:55px;display:flex;align-items:center;justify-content:space-between
 .stat{padding:21px 24px;border-top:2px solid #39d7c4}
 .stat label,.sub{color:#6680a5}
 .stat b{display:block;font-size:27px;margin-top:10px}
-.title{font-size:17px;font-weight:750;margin-bottom:17px}
+.title{font-size:17px;font-weight:750;margin:42px 0 17px}
+.stats + .title{margin-top:0}
 .title:before{content:'//';color:#2ed5c3;margin-right:8px}
 .nodes{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
 .node{padding:22px;cursor:pointer;text-decoration:none;color:inherit;min-height:325px;transition:.18s}

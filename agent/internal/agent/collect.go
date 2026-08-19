@@ -15,8 +15,7 @@ import (
 
 var lastCPUTotal, lastCPUIdle uint64
 
-func collectResources() model.Resources {
-	r := model.Resources{}
+func collectResources() (r model.Resources, up uint64) {
 	if runtime.GOOS == "linux" {
 		f, _ := os.Open("/proc/meminfo")
 		if f != nil {
@@ -42,31 +41,33 @@ func collectResources() model.Resources {
 		}
 		r.CPUPercent = linuxCPUPercent()
 		r.Disks = linuxDisks()
+		up = uptime()
 	} else if runtime.GOOS == "windows" {
-		r = windowsResources()
+		r, up = windowsResources()
 	}
-	return r
+	return
 }
 
 // Windows performance data is collected through built-in CIM; no external agent dependency is needed.
-func windowsResources() model.Resources {
-	const script = "$os=Get-CimInstance Win32_OperatingSystem;$cpu=Get-CimInstance Win32_Processor|Measure-Object LoadPercentage -Average;$d=Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3'|Select-Object DeviceID,Size,FreeSpace;[pscustomobject]@{Total=[uint64]$os.TotalVisibleMemorySize*1024;Free=[uint64]$os.FreePhysicalMemory*1024;CPU=[double]$cpu.Average;Disks=@($d)}|ConvertTo-Json -Compress"
+func windowsResources() (model.Resources, uint64) {
+	const script = "$os=Get-CimInstance Win32_OperatingSystem;$cpu=Get-CimInstance Win32_Processor|Measure-Object LoadPercentage -Average;$d=Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3'|Select-Object DeviceID,Size,FreeSpace;[pscustomobject]@{Total=[uint64]$os.TotalVisibleMemorySize*1024;Free=[uint64]$os.FreePhysicalMemory*1024;CPU=[double]$cpu.Average;Uptime=[int64](((Get-Date)-$os.LastBootUpTime).TotalSeconds);Disks=@($d)}|ConvertTo-Json -Compress"
 	b, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
 	if err != nil {
-		return model.Resources{}
+		return model.Resources{}, 0
 	}
 	var v struct {
-		Total uint64
-		Free  uint64
-		CPU   float64
-		Disks []struct {
+		Total  uint64
+		Free   uint64
+		CPU    float64
+		Uptime uint64
+		Disks  []struct {
 			DeviceID  string
 			Size      uint64
 			FreeSpace uint64
 		}
 	}
 	if json.Unmarshal(b, &v) != nil {
-		return model.Resources{}
+		return model.Resources{}, 0
 	}
 	r := model.Resources{CPUPercent: v.CPU, MemoryTotalBytes: v.Total, MemoryUsedBytes: v.Total - v.Free}
 	// Windows has no native load average; estimate from CPU utilization so the
@@ -84,7 +85,7 @@ func windowsResources() model.Resources {
 		}
 		r.Disks = append(r.Disks, model.Disk{Mountpoint: d.DeviceID, TotalBytes: d.Size, UsedBytes: used, UsedPercent: pct})
 	}
-	return r
+	return r, v.Uptime
 }
 func linuxCPUPercent() float64 {
 	b, e := os.ReadFile("/proc/stat")

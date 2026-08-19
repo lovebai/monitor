@@ -50,11 +50,11 @@ func (a *Agent) Report() error {
 }
 func (a *Agent) Collect() model.Report {
 	h, _ := os.Hostname()
-	res := collectResources()
+	res, up := collectResources()
 	r := model.Report{NodeID: a.cfg.NodeID, Hostname: h, Group: a.cfg.Group, Timestamp: time.Now().UTC(), OS: model.OSInfo{Name: runtime.GOOS, Architecture: runtime.GOARCH}, Hardware: model.Hardware{LogicalCPUs: runtime.NumCPU()}, Resources: res, Interfaces: a.collectInterfaces(), Network: probe(a.cfg.ProbeTarget)}
 	r.Hardware.CPUModel = cpuModel()
 	r.Hardware.TotalMemoryBytes = r.Resources.MemoryTotalBytes
-	r.OS.UptimeSeconds = uptime()
+	r.OS.UptimeSeconds = up
 	r.Checks = runChecks(a.cfg.Processes, a.cfg.Services)
 	r.TopCPU, r.TopMemory = topProcesses(res.MemoryTotalBytes)
 	return r
