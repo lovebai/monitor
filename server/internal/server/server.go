@@ -10,8 +10,9 @@ import (
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite"
 	"monitor-server/internal/model"
+
+	_ "modernc.org/sqlite"
 )
 
 type Config struct {
@@ -47,6 +48,7 @@ type groupView struct {
 	Nodes []nodeView
 }
 
+// 默认分组DEFAULT,为了方便还是从agent提交吧
 func groupNodes(v []nodeView) []groupView {
 	byName := map[string][]nodeView{}
 	for _, n := range v {
@@ -111,6 +113,8 @@ func New(cfg Config) (*Handler, error) {
 	return &Handler{cfg: cfg, db: db, dashboard: t, detail: d}, nil
 }
 func (h *Handler) Close() error { return h.db.Close() }
+
+// 还是用gin舒服,不想改了
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodPost && r.URL.Path == "/api/v1/reports":
