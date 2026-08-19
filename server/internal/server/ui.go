@@ -67,7 +67,6 @@ header{height:55px;display:flex;align-items:center;justify-content:space-between
 <div class="line"><label>内存 <b data-role="mem" class="{{if ge (pct .Resources.MemoryUsedBytes .Resources.MemoryTotalBytes) $.MemThreshold}}danger{{end}}">{{printf "%.1f" (pct .Resources.MemoryUsedBytes .Resources.MemoryTotalBytes)}}%</b></label><div class="bar"><i data-role="membar" class="{{if ge (pct .Resources.MemoryUsedBytes .Resources.MemoryTotalBytes) $.MemThreshold}}danger{{end}}" style="width:{{printf "%.0f" (pct .Resources.MemoryUsedBytes .Resources.MemoryTotalBytes)}}%"></i></div></div>
 {{if .Resources.Disks}}{{with index .Resources.Disks 0}}<div class="line"><label>磁盘 <b data-role="disk" class="{{if ge .UsedPercent $.DiskThreshold}}danger{{end}}">{{printf "%.1f" .UsedPercent}}%</b></label><div class="bar"><i data-role="diskbar" class="{{if ge .UsedPercent $.DiskThreshold}}danger{{end}}" style="width:{{printf "%.0f" .UsedPercent}}%"></i></div></div>{{end}}{{end}}
 <div class="net" data-role="net">负载　{{printf "%.0f" (loadPct .Resources.Load1 .Hardware.LogicalCPUs)}}%（{{printf "%.2f" .Resources.Load1}} / {{printf "%.2f" .Resources.Load5}} / {{printf "%.2f" .Resources.Load15}}）<br>网络　↓ {{rate .NetRxBps}}　↑ {{rate .NetTxBps}}<br>探测　{{if .Network.Reachable}}{{printf "%.0f ms" .Network.LatencyMS}}{{else}}不可达{{end}}</div>
-<div class="net up" data-role="uptime">开机时长:　{{dur .OS.UptimeSeconds}}</div>
 <div class="net up" data-role="sys-time">系统时间:　{{sysTime .SystemTime}}</div>
 <div data-role="alerts">{{range .Alerts}}<div class="warn">● {{.Message}}</div>{{end}}</div>
 </a>{{end}}
@@ -78,7 +77,6 @@ header{height:55px;display:flex;align-items:center;justify-content:space-between
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function fmtRate(b){b=+b||0;if(b<1024)return b.toFixed(1)+' B/s';if(b<1048576)return (b/1024).toFixed(1)+' KB/s';if(b<1073741824)return (b/1048576).toFixed(1)+' MB/s';return (b/1073741824).toFixed(1)+' GB/s'}
 function fmtAgo(t){if(!t)return '';const s=(Date.now()-new Date(t).getTime())/1000;return s<60?Math.max(0,Math.round(s))+' 秒前':Math.round(s/60)+' 分钟前'}
-function fmtDur(s){s=+s||0;const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);if(d>0)return d+'天'+h+'时';if(h>0)return h+'时'+m+'分';if(m>0)return m+'分';return Math.floor(s)+'秒'}
 function fmtSysTime(t){return t?String(t).replace('T',' ').slice(0,19):'-'}
 function loadPct(l,c){return c>0?l*100/c:0}
 var prevOnline={},ack={},lastAlarmAt=Date.now(),audioCtx=null,latest={};
@@ -174,8 +172,6 @@ async function refresh(){
         const nw=n.network||{};
         net.innerHTML='负载　'+loadPct(r.load_1||0,h.logical_cpus||0).toFixed(0)+'%（'+(r.load_1||0).toFixed(2)+' / '+(r.load_5||0).toFixed(2)+' / '+(r.load_15||0).toFixed(2)+'）<br>网络　↓ '+fmtRate(n.net_rx_bps||0)+'　↑ '+fmtRate(n.net_tx_bps||0)+'<br>探测　'+(nw.reachable?Math.round(nw.latency_ms||0)+' ms':'不可达');
       }
-      const up=card.querySelector('[data-role="uptime"]');
-      if(up)up.textContent='开机时长:　'+fmtDur(n.os&&n.os.uptime_seconds?n.os.uptime_seconds:0);
       const st=card.querySelector('[data-role="sys-time"]');
       if(st)st.textContent='系统时间:　'+fmtSysTime(n.system_time);
       const aw=card.querySelector('[data-role="alerts"]');
