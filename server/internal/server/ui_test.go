@@ -19,8 +19,10 @@ func TestHomePageOfflineCardBlocked(t *testing.T) {
 	on := nodeView{Report: model.Report{
 		NodeID:     "n1",
 		Hostname:   "h1",
+		Alias:      "生产服务器",
 		Timestamp:  time.Now(),
 		OS:         model.OSInfo{UptimeSeconds: 3*86400 + 15*3600},
+		Hardware:   model.Hardware{LogicalCPUs: 4},
 		SystemTime: time.Date(2026, 8, 19, 9, 30, 0, 0, time.FixedZone("CST", 8*3600)),
 		Resources: model.Resources{
 			MemoryUsedBytes:  90 * 1024 * 1024 * 1024,
@@ -63,6 +65,9 @@ func TestHomePageOfflineCardBlocked(t *testing.T) {
 	if !strings.Contains(html, `class="net up" data-role="sys-time">系统时间:　2026-08-19 09:30:00`) {
 		t.Error("node card should show agent 系统时间 in light style")
 	}
+	if !strings.Contains(html, `<span>4 CPU</span><span class="alias">生产服务器</span>`) {
+		t.Error("node card chips should end with alias span")
+	}
 }
 
 func TestFormatUptime(t *testing.T) {
@@ -103,6 +108,7 @@ func TestDetailPageTopProcesses(t *testing.T) {
 	n := nodeView{Report: model.Report{
 		NodeID:    "n1",
 		Hostname:  "h1",
+		Alias:     "生产服务器",
 		Timestamp: time.Now(),
 		Hardware:  model.Hardware{LogicalCPUs: 4},
 		Resources: model.Resources{MemoryTotalBytes: 8 << 30},
@@ -130,6 +136,7 @@ func TestDetailPageTopProcesses(t *testing.T) {
 	html := b.String()
 	for _, want := range []string{
 		"进程检查", "服务检查",
+		"n1 · 生产服务器 · ",
 		"<td>nginx</td><td><span class=\"st ok\">● 运行中 ×2（PID 123 124 ）</span></td>",
 		"<td>sshd</td><td><span class=\"st bad\">⚠ 未运行</span></td>",
 		"进程资源 Top 5", "CPU 占用 Top 5", "内存占用 Top 5",

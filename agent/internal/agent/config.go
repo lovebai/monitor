@@ -12,6 +12,7 @@ type Config struct {
 	ServerURL    string        `json:"server_url"`
 	Token        string        `json:"token"`
 	NodeID       string        `json:"node_id"`
+	Alias        string        `json:"alias"`
 	Group        string        `json:"group"`
 	Interval     time.Duration `json:"-"`
 	IntervalText string        `json:"interval"`
@@ -72,6 +73,8 @@ func parseSimpleYAML(s string) Config {
 			c.Token = v
 		case "node_id":
 			c.NodeID = v
+		case "alias":
+			c.Alias = v
 		case "group":
 			c.Group = v
 		case "interval":

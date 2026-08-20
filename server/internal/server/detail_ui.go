@@ -46,7 +46,7 @@ a{color:#3b719d;text-decoration:none}
 </head>
 <body data-node="{{.Node.NodeID}}" data-memthr="{{.MemThreshold}}" data-diskthr="{{.DiskThreshold}}">
 <main class="w">
-<div class="top"><a href="/">‹ 返回总览</a><div class="name">{{.Node.Hostname}} <span id="d-on" style="color:#29ba9b;font-size:13px">● {{if .Node.Online}}在线{{else}}离线{{end}}</span></div><div style="color:#6981a1;margin-top:6px">{{.Node.NodeID}} · {{.Node.OS.Name}} {{.Node.OS.Version}} · {{.Node.Hardware.CPUModel}}</div></div>
+<div class="top"><a href="/">‹ 返回总览</a><div class="name">{{.Node.Hostname}} <span id="d-on" style="color:#29ba9b;font-size:13px">● {{if .Node.Online}}在线{{else}}离线{{end}}</span></div><div style="color:#6981a1;margin-top:6px">{{.Node.NodeID}} · {{if .Node.Alias}}{{.Node.Alias}} · {{end}}{{.Node.OS.Name}} {{.Node.OS.Version}} · {{.Node.Hardware.CPUModel}}</div></div>
 <section class="grid">
 <div class="card"><label>CPU</label><b id="d-cpu">{{printf "%.1f" .Node.Resources.CPUPercent}}%</b></div>
 <div class="card"><label>网络延迟</label><b id="d-lat">{{if .Node.Network.Reachable}}{{printf "%.1f ms" .Node.Network.LatencyMS}}{{else}}不可达{{end}}</b></div>

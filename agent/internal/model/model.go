@@ -5,6 +5,7 @@ import "time"
 type Report struct {
 	NodeID     string             `json:"node_id"`
 	Hostname   string             `json:"hostname"`
+	Alias      string             `json:"alias,omitempty"`
 	Group      string             `json:"group"`
 	Timestamp  time.Time          `json:"timestamp"`
 	SystemTime time.Time          `json:"system_time"`
