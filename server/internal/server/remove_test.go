@@ -45,3 +45,26 @@ func TestRemoveNode(t *testing.T) {
 		t.Errorf("leftover rows: nodes=%d metrics=%d alerts=%d", nodes, metrics, alerts)
 	}
 }
+
+func TestPruneMetricsRetention(t *testing.T) {
+	h, err := New(Config{Token: "t", DatabasePath: filepath.Join(t.TempDir(), "monitor-test.db"), HistoryRetentionDays: 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+	now := time.Now().UTC().Unix()
+	old := now - 40*86400
+	for _, ts := range []int64{old, now} {
+		if _, err := h.db.Exec(`INSERT INTO metrics(node_id,collected_at,cpu,memory_percent,disk_percent,latency_ms,rx_rate,tx_rate) VALUES('n1',?,1,1,1,1,1,1)`, ts); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h.pruneMetrics(time.Now())
+	var n int
+	if err := h.db.QueryRow(`SELECT COUNT(*) FROM metrics`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Errorf("metrics rows after prune = %d, want 1 (只保留 30 天内)", n)
+	}
+}

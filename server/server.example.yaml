@@ -7,3 +7,5 @@ latency_threshold_ms: 500
 # 内存/磁盘使用率超过该百分比时，页面数值与进度条变红
 memory_threshold_percent: 80
 disk_threshold_percent: 80
+# metrics 历史数据保留天数，超期数据在每次 Agent 上报时自动清理
+history_retention_days: 30

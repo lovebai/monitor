@@ -10,13 +10,14 @@ import (
 // FileConfig uses a deliberately small YAML subset so Server remains dependency-light.
 // Values can be written as plain text or quoted strings.
 type FileConfig struct {
-	Listen             string
-	Token              string
-	DatabasePath       string
-	OfflineAfterText   string
-	LatencyThresholdMS float64
-	MemoryThresholdPct float64
-	DiskThresholdPct   float64
+	Listen               string
+	Token                string
+	DatabasePath         string
+	OfflineAfterText     string
+	LatencyThresholdMS   float64
+	MemoryThresholdPct   float64
+	DiskThresholdPct     float64
+	HistoryRetentionDays int
 }
 
 func LoadFileConfig(path string) (FileConfig, error) {
@@ -24,7 +25,7 @@ func LoadFileConfig(path string) (FileConfig, error) {
 	if err != nil {
 		return FileConfig{}, fmt.Errorf("read server config: %w", err)
 	}
-	c := FileConfig{Listen: ":8080", DatabasePath: "monitor.db", OfflineAfterText: "90s", LatencyThresholdMS: 500, MemoryThresholdPct: 80, DiskThresholdPct: 80}
+	c := FileConfig{Listen: ":8080", DatabasePath: "monitor.db", OfflineAfterText: "90s", LatencyThresholdMS: 500, MemoryThresholdPct: 80, DiskThresholdPct: 80, HistoryRetentionDays: 30}
 	for _, line := range strings.Split(string(b), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -50,6 +51,8 @@ func LoadFileConfig(path string) (FileConfig, error) {
 			fmt.Sscanf(value, "%f", &c.MemoryThresholdPct)
 		case "disk_threshold_percent":
 			fmt.Sscanf(value, "%f", &c.DiskThresholdPct)
+		case "history_retention_days":
+			fmt.Sscanf(value, "%d", &c.HistoryRetentionDays)
 		}
 	}
 	if c.Token == "" {
@@ -65,5 +68,5 @@ func LoadFileConfig(path string) (FileConfig, error) {
 }
 func (c FileConfig) Runtime() Config {
 	d, _ := time.ParseDuration(c.OfflineAfterText)
-	return Config{Token: c.Token, DatabasePath: c.DatabasePath, OfflineAfter: d, LatencyThresholdMS: c.LatencyThresholdMS, MemoryThresholdPct: c.MemoryThresholdPct, DiskThresholdPct: c.DiskThresholdPct}
+	return Config{Token: c.Token, DatabasePath: c.DatabasePath, OfflineAfter: d, LatencyThresholdMS: c.LatencyThresholdMS, MemoryThresholdPct: c.MemoryThresholdPct, DiskThresholdPct: c.DiskThresholdPct, HistoryRetentionDays: c.HistoryRetentionDays}
 }

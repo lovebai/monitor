@@ -16,12 +16,13 @@ import (
 )
 
 type Config struct {
-	Token              string
-	DatabasePath       string
-	OfflineAfter       time.Duration
-	LatencyThresholdMS float64
-	MemoryThresholdPct float64
-	DiskThresholdPct   float64
+	Token                string
+	DatabasePath         string
+	OfflineAfter         time.Duration
+	LatencyThresholdMS   float64
+	MemoryThresholdPct   float64
+	DiskThresholdPct     float64
+	HistoryRetentionDays int
 }
 type Handler struct {
 	cfg       Config
@@ -82,6 +83,9 @@ func New(cfg Config) (*Handler, error) {
 	}
 	if cfg.DiskThresholdPct <= 0 {
 		cfg.DiskThresholdPct = 80
+	}
+	if cfg.HistoryRetentionDays <= 0 {
+		cfg.HistoryRetentionDays = 30
 	}
 	if cfg.DatabasePath == "" {
 		cfg.DatabasePath = "monitor.db"
@@ -157,7 +161,7 @@ func (h *Handler) ingest(w http.ResponseWriter, r *http.Request) {
 	}
 	rx, tx := netRates(report.Interfaces)
 	_, _ = h.db.Exec(`INSERT INTO metrics(node_id,collected_at,cpu,memory_percent,disk_percent,latency_ms,rx_rate,tx_rate) VALUES(?,?,?,?,?,?,?,?)`, report.NodeID, report.Timestamp.Unix(), report.Resources.CPUPercent, percent(report.Resources.MemoryUsedBytes, report.Resources.MemoryTotalBytes), disk, report.Network.LatencyMS, rx, tx)
-	_, _ = h.db.Exec(`DELETE FROM metrics WHERE collected_at < ?`, time.Now().Add(-30*24*time.Hour).Unix())
+	h.pruneMetrics(time.Now())
 	h.setAlert(report.NodeID, "offline", false, "节点恢复在线")
 	high := report.Network.ProbeTarget != "" && !report.Network.Reachable || report.Network.LatencyMS > h.cfg.LatencyThresholdMS
 	msg := fmt.Sprintf("网络探测异常：%s", report.Network.Error)
@@ -174,6 +178,11 @@ func (h *Handler) setAlert(node, kind string, active bool, message string) {
 	} else {
 		_, _ = h.db.Exec(`UPDATE alerts SET active=0,resolved_at=?,updated_at=? WHERE node_id=? AND kind=? AND active=1`, now, now, node, kind)
 	}
+}
+
+// pruneMetrics 删除超过历史保留天数的 metrics 记录。
+func (h *Handler) pruneMetrics(now time.Time) {
+	_, _ = h.db.Exec(`DELETE FROM metrics WHERE collected_at < ?`, now.Add(-time.Duration(h.cfg.HistoryRetentionDays)*24*time.Hour).Unix())
 }
 func (h *Handler) views() []nodeView {
 	now := time.Now().UTC()
