@@ -50,14 +50,18 @@ func (a *Agent) Report() error {
 }
 func (a *Agent) Collect() model.Report {
 	h, _ := os.Hostname()
-	res, up := collectResources()
+	var win *winData
+	if runtime.GOOS == "windows" {
+		win, _ = collectWindowsAll()
+	}
+	res, up := collectResources(win)
 	now := time.Now()
-	r := model.Report{NodeID: a.cfg.NodeID, Hostname: h, Alias: a.cfg.Alias, Group: a.cfg.Group, Timestamp: now.UTC(), SystemTime: now, OS: model.OSInfo{Name: runtime.GOOS, Architecture: runtime.GOARCH}, Hardware: model.Hardware{LogicalCPUs: runtime.NumCPU()}, Resources: res, Interfaces: a.collectInterfaces(), Network: probe(a.cfg.ProbeTarget)}
+	r := model.Report{NodeID: a.cfg.NodeID, Hostname: h, Alias: a.cfg.Alias, Group: a.cfg.Group, Timestamp: now.UTC(), SystemTime: now, OS: model.OSInfo{Name: runtime.GOOS, Architecture: runtime.GOARCH}, Hardware: model.Hardware{LogicalCPUs: runtime.NumCPU()}, Resources: res, Interfaces: a.collectInterfaces(win), Network: probe(a.cfg.ProbeTarget)}
 	r.Hardware.CPUModel = cpuModel()
 	r.Hardware.TotalMemoryBytes = r.Resources.MemoryTotalBytes
 	r.OS.UptimeSeconds = up
 	r.Checks = runChecks(a.cfg.Processes, a.cfg.Services)
-	r.TopCPU, r.TopMemory = topProcesses(res.MemoryTotalBytes)
+	r.TopCPU, r.TopMemory = topProcesses(res.MemoryTotalBytes, up, win)
 	return r
 }
 

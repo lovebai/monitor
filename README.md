@@ -21,7 +21,7 @@
 平台支持：
 
 - Linux：完整采集 CPU、内存、磁盘、负载与网卡流量（`/proc`、`df` 等）；进程 CPU/内存占用 Top 5 通过 `/proc` 读取并按两次采集差分计算。
-- Windows：内置 CIM 采集 CPU、内存、磁盘；进程 CPU/内存占用 Top 5 通过 `Win32_PerfFormattedData_PerfProc_Process` 性能计数器采集；网卡字节速率通过 `Get-NetAdapterStatistics` 采集；负载以 CPU 利用率估算（Windows 无原生负载均值）。
+- Windows：内置 CIM 通过单次 PowerShell 调用采集 CPU、内存、磁盘、网卡字节速率（`Get-NetAdapterStatistics`）与进程 CPU/内存占用 Top 5（`Win32_PerfFormattedData_PerfProc_Process` 性能计数器）；负载以 CPU 利用率估算（Windows 无原生负载均值）。
 
 ## 项目结构
 

@@ -9,7 +9,11 @@ func TestWindowsUptimeCollected(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("uptime 采集为 Windows 专用逻辑")
 	}
-	r, up := windowsResources()
+	v, err := collectWindowsAll()
+	if err != nil || v == nil {
+		t.Skip("WMI 不可用（受限环境），跳过断言")
+	}
+	r, up := windowsResourcesFrom(v)
 	if r.CPUPercent == 0 && r.MemoryTotalBytes == 0 {
 		t.Skip("WMI 不可用（受限环境），跳过断言")
 	}

@@ -1,7 +1,9 @@
 package agent
 
 import (
+	"math"
 	"monitor-agent/internal/model"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -67,5 +69,57 @@ func TestParseProcStatLine(t *testing.T) {
 	}
 	if _, _, ok := parseProcStatLine("garbage"); ok {
 		t.Error("malformed line should fail")
+	}
+}
+
+func TestWindowsTopProcessesFrom(t *testing.T) {
+	d := &winData{Procs: []winProc{
+		{Name: "chrome#3", IDProcess: 100, PercentProcessorTime: 200, WorkingSet: 1024},
+		{Name: "svchost", IDProcess: 500, PercentProcessorTime: 50, WorkingSet: 2048},
+	}}
+	procs := windowsTopProcessesFrom(d)
+	if len(procs) != 2 {
+		t.Fatalf("len = %d, want 2", len(procs))
+	}
+	if procs[0].Name != "chrome" || procs[0].PID != 100 || procs[0].MemoryBytes != 1024 {
+		t.Errorf("procs[0] = %+v", procs[0])
+	}
+	cores := runtime.NumCPU()
+	want := 200 / float64(cores)
+	if math.Abs(procs[0].CPUPercent-want) > 1e-9 {
+		t.Errorf("cpu = %v, want %v", procs[0].CPUPercent, want)
+	}
+	if windowsTopProcessesFrom(nil) != nil {
+		t.Error("nil winData should return nil")
+	}
+}
+
+func TestWindowsResourcesFrom(t *testing.T) {
+	d := &winData{Total: 8000, Free: 2000, CPU: 50, Uptime: 3600, Disks: []winDisk{{DeviceID: "C:", Size: 1000, FreeSpace: 400}}}
+	r, up := windowsResourcesFrom(d)
+	if r.MemoryTotalBytes != 8000 || r.MemoryUsedBytes != 6000 || up != 3600 {
+		t.Errorf("memory/uptime wrong: %+v up=%d", r, up)
+	}
+	if len(r.Disks) != 1 || r.Disks[0].UsedPercent != 60 {
+		t.Errorf("disks wrong: %+v", r.Disks)
+	}
+	cores := runtime.NumCPU()
+	wantLoad := 50.0 / 100 * float64(cores)
+	if r.Load1 != wantLoad || r.Load5 != wantLoad || r.Load15 != wantLoad {
+		t.Errorf("load = %v/%v/%v, want %v", r.Load1, r.Load5, r.Load15, wantLoad)
+	}
+	if r2, up2 := windowsResourcesFrom(nil); r2.CPUPercent != 0 || up2 != 0 {
+		t.Error("nil winData should return empty resources")
+	}
+}
+
+func TestWindowsNetCountersFrom(t *testing.T) {
+	d := &winData{Net: []winNet{{Name: "以太网", ReceivedBytes: 100, SentBytes: 200}}}
+	m := windowsNetCountersFrom(d)
+	if m["以太网"] != (netSample{rx: 100, tx: 200}) {
+		t.Errorf("net counters wrong: %+v", m)
+	}
+	if windowsNetCountersFrom(nil) != nil {
+		t.Error("nil winData should return nil")
 	}
 }

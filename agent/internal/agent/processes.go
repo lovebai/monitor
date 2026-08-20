@@ -1,10 +1,8 @@
 package agent
 
 import (
-	"encoding/json"
 	"monitor-agent/internal/model"
 	"os"
-	"os/exec"
 	"runtime"
 	"sort"
 	"strconv"
@@ -19,12 +17,13 @@ var procPrevCPU = map[int]uint64{}
 var procPrevTotal uint64
 
 // topProcesses 返回 CPU 占用率与内存占用最高的 topN 个进程。
-func topProcesses(totalMem uint64) (topCPU, topMemory []model.ProcessStat) {
+// win 为 Windows 单次采集结果；up 为 Linux 开机时长（首次采样时用于平均占用估算）。
+func topProcesses(totalMem, up uint64, win *winData) (topCPU, topMemory []model.ProcessStat) {
 	var procs []model.ProcessStat
 	if runtime.GOOS == "windows" {
-		procs = windowsTopProcesses()
+		procs = windowsTopProcessesFrom(win)
 	} else {
-		procs = linuxTopProcesses()
+		procs = linuxTopProcesses(up)
 	}
 	for i := range procs {
 		if totalMem > 0 {
@@ -54,13 +53,12 @@ func topNByMemory(procs []model.ProcessStat, n int) []model.ProcessStat {
 
 // linuxTopProcesses 通过 /proc 读取各进程 CPU 时钟数与常驻内存（VmRSS）。
 // CPU 占用率优先使用两次采集间的差分；首次采集退化为进程启动以来的平均占用。
-func linuxTopProcesses() []model.ProcessStat {
+func linuxTopProcesses(up uint64) []model.ProcessStat {
 	total := cpuTotalTicks()
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return nil
 	}
-	up := uptime()
 	cores := runtime.NumCPU()
 	next := make(map[int]uint64)
 	var procs []model.ProcessStat
@@ -148,22 +146,9 @@ func procRSS(pid int) uint64 {
 	return 0
 }
 
-// windowsTopProcesses 通过 CIM 性能计数器采集各进程 CPU 占用率与内存工作集。
-func windowsTopProcesses() []model.ProcessStat {
-	const script = `[Console]::OutputEncoding=[Text.Encoding]::UTF8;$p=@(Get-CimInstance Win32_PerfFormattedData_PerfProc_Process -ErrorAction SilentlyContinue|Where-Object {$_.Name -ne '_Total' -and $_.Name -ne 'Idle' -and $_.IDProcess -gt 0}|Select-Object Name,IDProcess,PercentProcessorTime,WorkingSet);[pscustomobject]@{Procs=@($p)}|ConvertTo-Json -Compress`
-	b, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
-	if err != nil || strings.TrimSpace(string(b)) == "" {
-		return nil
-	}
-	var v struct {
-		Procs []struct {
-			Name                 string
-			IDProcess            int
-			PercentProcessorTime float64
-			WorkingSet           uint64
-		}
-	}
-	if json.Unmarshal(b, &v) != nil {
+// windowsTopProcessesFrom 从单次采集结果中取各进程 CPU 占用率与内存工作集。
+func windowsTopProcessesFrom(v *winData) []model.ProcessStat {
+	if v == nil {
 		return nil
 	}
 	cores := runtime.NumCPU()
