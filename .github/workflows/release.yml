@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  VER: ${{ github.ref_name }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache: true
+
+      - name: Build Server/Agent（Windows amd64 + Linux amd64）
+        run: |
+          set -euo pipefail
+          VER="${VER#v}"
+          mkdir -p dist
+          (cd server && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.Version=${VER}" -o ../dist/server.exe ./cmd)
+          (cd agent && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.Version=${VER}" -o ../dist/agent.exe ./cmd)
+          (cd server && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.Version=${VER}" -o ../dist/server-linux-amd64 ./cmd)
+          (cd agent && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.Version=${VER}" -o ../dist/agent-linux-amd64 ./cmd)
+
+      - name: Setup Go 1.20（旧系统兼容构建）
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.20.14'
+          cache: true
+
+      - name: Build legacy agent（Windows 7 / Server 2008 R2+）
+        run: |
+          set -euo pipefail
+          VER="${VER#v}"
+          (cd agent && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.Version=${VER}" -modfile legacy.go.mod -o ../dist/agent-win2008.exe ./cmd)
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/server.exe
+            dist/agent.exe
+            dist/server-linux-amd64
+            dist/agent-linux-amd64
+            dist/agent-win2008.exe
+            dist/SHA256SUMS.txt
+          generate_release_notes: true

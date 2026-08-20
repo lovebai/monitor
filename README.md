@@ -49,6 +49,17 @@ Copy-Item server.example.yaml server.yaml   # 编辑配置后启动
 go run ./cmd -config server.yaml
 ```
 
+### 发布 Release
+
+推送 `v*` 标签（如 `v2026.08.20`）会触发 GitHub Actions（`.github/workflows/release.yml`）自动构建并发布到 [Releases](https://github.com/lovebai/monitor/releases)：
+
+```bash
+git tag v2026.08.20
+git push origin v2026.08.20
+```
+
+版本号取标签去掉 `v` 前缀；产物包含 `server.exe` / `agent.exe` / `server-linux-amd64` / `agent-linux-amd64` / `agent-win2008.exe`（Windows 7/Server 2008 兼容版）与 `SHA256SUMS.txt` 校验文件。
+
 ### 兼容旧系统（Windows Server 2008 / Windows 7）
 
 Go 1.21 起官方不再支持 Windows 7 / Server 2008 / Server 2012（最低要求 Windows 10 / Server 2016），
