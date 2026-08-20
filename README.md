@@ -14,7 +14,8 @@
 - 节点详情页：摘要卡片、内存、磁盘（全部分区）、已启用网卡（仅名称/MAC/IPv4）、服务与进程表格、进程资源 Top 5（CPU/内存占用）、历史曲线（CPU/内存/磁盘/网络速率/延迟）、告警，5 秒局部刷新。
 - 告警：超出 `offline_after` 未上报即离线；网络不可达或 TCP 延迟超过 `latency_threshold_ms` 触发网络告警。
 - 节点删除：`server.exe -remove <node_id>`，输入 6 位随机验证码确认后删除数据库中的节点及其历史指标与告警。
-- 安全与存储：Bearer Token 鉴权、2 MiB 请求限制、SQLite 持久化、Web 仪表盘与 JSON API。
+- 读接口鉴权：`auth_enabled: true` 时，主页/详情页/JSON 读接口需登录（会话 Cookie，默认关闭）；Agent 上报仍使用 Bearer Token，不受影响。
+- 安全与存储：Bearer Token 上报鉴权、可选登录鉴权、2 MiB 请求限制、SQLite 持久化、Web 仪表盘与 JSON API。
 - 启动提示：Server/Agent 启动时在终端输出生效配置（Token 脱敏显示）。
 
 平台支持：
@@ -74,6 +75,9 @@ latency_threshold_ms: 500    # 网络延迟告警阈值（ms）
 memory_threshold_percent: 80 # 内存使用率变红阈值（%）
 disk_threshold_percent: 80   # 磁盘使用率变红阈值（%）
 history_retention_days: 30    # metrics 历史数据保留天数，超期数据在每次 Agent 上报时自动清理
+auth_enabled: false           # 是否开启网页/JSON 读接口登录鉴权（默认关闭）
+auth_username: admin          # 开启鉴权时的登录用户名
+auth_password: 123456         # 开启鉴权时的登录密码
 ```
 
 ### 配置 Agent
@@ -101,6 +105,8 @@ services:
 1. 启动 Server：`server.exe -config server.yaml`（Linux 使用 `server-linux-amd64`）。
 2. 在被监控设备启动 Agent：`agent.exe -config agent.yaml`；使用 `-once` 可只采集上报一次，`Ctrl+C` 停止。
 3. 打开 `http://server:8080/` 查看仪表盘；`GET /api/v1/nodes` 获取 JSON。
+
+开启 `auth_enabled` 后，浏览器访问会先跳转到 `/login` 登录；JSON 读接口（`/api/v1/nodes`、历史接口）需携带登录会话，否则返回 401。
 
 ### 删除节点
 
