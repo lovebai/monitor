@@ -1,5 +1,5 @@
 # Server 仅从此文件加载运行参数；不要将真实令牌提交到代码库。
-listen: :8080
+listen: 0.0.0.0:8080
 token: 123456
 database_path: monitor.db
 offline_after: 60s
