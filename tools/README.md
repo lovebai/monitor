@@ -10,6 +10,8 @@
 2. **Agent 配置**：填写 Server 地址、节点 Token / node_id、分组、进程与服务检查等（每台被监控设备一份）；点击“生成 agent.yaml”，可复制或下载。
 3. 快捷操作：Agent 面板的“登记到 Server agent_tokens”按钮会把当前节点 Token 直接加入左侧 Server 登记列表，避免两边手填不一致。
 
+节点 Token 输入框旁的“随机”按钮可一键生成 16 位英文大小写组合（基于 `crypto.getRandomValues` 加密安全随机数）。
+
 ## 生成格式说明
 
 - 生成的 `server.yaml` 与 `server/internal/server/config.go` 的解析格式一致（`agent_tokens` 为缩进映射）。

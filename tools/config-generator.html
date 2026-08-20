@@ -75,7 +75,7 @@ pre{background:#f6fafd;border:1px solid #e2eaf4;border-radius:10px;padding:14px;
 <p>部署到被监控设备上的采集器参数（每台设备一份）</p>
 <label>Server 地址（必填）</label><input id="a-url" value="http://127.0.0.1:8080">
 <div class="row3">
-<div><label>节点 Token（必填）</label><input id="a-token"></div>
+<div><label>节点 Token（必填）</label><div class="row"><input id="a-token"><button class="btn ghost small" id="rand-token" type="button" title="随机生成 16 位英文大小写组合">随机</button></div></div>
 <div><label>节点 ID（必填）</label><input id="a-node"></div>
 </div>
 <label>备注别名</label><input id="a-alias" placeholder="如：生产环境 Web 服务器">
@@ -116,6 +116,7 @@ function renderTokenRows(){
 }
 $('add-token').onclick=()=>{tokenRows.push({node:'',token:''});renderTokenRows()};
 $('s-auth').onchange=()=>{$('s-auth-fields').style.display=$('s-auth').checked?'block':'none'};
+$('rand-token').onclick=()=>{$('a-token').value=randToken()};
 $('reg-server').onclick=()=>{
   const node=val('a-node',''),token=val('a-token','');
   const err=$('a-err');
@@ -182,6 +183,15 @@ function download(name,text){
   const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+// 随机生成 16 位英文大小写组合（基于加密安全随机数）
+function randToken(){
+  const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  const out=new Uint8Array(16);
+  crypto.getRandomValues(out);
+  let s='';
+  for(let i=0;i<16;i++)s+=chars[out[i]%chars.length];
+  return s;
 }
 renderTokenRows();
 </script>
