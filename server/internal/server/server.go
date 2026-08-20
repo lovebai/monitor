@@ -220,6 +220,32 @@ func (h *Handler) nodeAlerts(id string) []alert {
 	}
 	return a
 }
+
+// NodeExists 判断指定节点是否已存在于数据库中。
+func (h *Handler) NodeExists(id string) (bool, error) {
+	var n int
+	err := h.db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE node_id=?`, id).Scan(&n)
+	return n > 0, err
+}
+
+// RemoveNode 删除节点及其历史指标与告警记录。
+func (h *Handler) RemoveNode(id string) error {
+	tx, err := h.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, q := range []string{
+		`DELETE FROM alerts WHERE node_id=?`,
+		`DELETE FROM metrics WHERE node_id=?`,
+		`DELETE FROM nodes WHERE node_id=?`,
+	} {
+		if _, err := tx.Exec(q, id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
 func (h *Handler) json(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")

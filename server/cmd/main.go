@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
+	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"monitor-server/internal/server"
@@ -14,17 +18,22 @@ import (
 
 func main() {
 	configPath := flag.String("config", "server.yaml", "server YAML configuration file")
+	remove := flag.String("remove", "", "删除指定 node_id 的节点（需输入 6 位验证码确认）")
 	flag.Parse()
 	cfg, err := server.LoadFileConfig(*configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	printServerConfig(*configPath, cfg)
 	h, err := server.New(cfg.Runtime())
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer h.Close()
+	if *remove != "" {
+		removeNode(h, *remove)
+		return
+	}
+	printServerConfig(*configPath, cfg)
 	httpServer := &http.Server{Addr: cfg.Listen, Handler: h, ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		log.Printf("monitor server listening on %s", cfg.Listen)
@@ -38,6 +47,27 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = httpServer.Shutdown(ctx)
+}
+
+// removeNode 打印 6 位随机验证码，用户输入一致后才删除数据库中的节点。
+func removeNode(h *server.Handler, id string) {
+	exists, err := h.NodeExists(id)
+	if err != nil {
+		log.Fatalf("查询节点失败: %v", err)
+	}
+	if !exists {
+		log.Fatalf("节点 %s 不存在", id)
+	}
+	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+	fmt.Printf("即将删除节点 %s，请输入验证码 [%s] 确认：\n", id, code)
+	input, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	if strings.TrimSpace(input) != code {
+		log.Fatalf("验证码错误，已取消删除")
+	}
+	if err := h.RemoveNode(id); err != nil {
+		log.Fatalf("删除节点失败: %v", err)
+	}
+	log.Printf("已删除节点 %s，页面将不再显示", id)
 }
 
 func printServerConfig(path string, c server.FileConfig) {

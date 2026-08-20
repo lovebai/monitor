@@ -4,7 +4,7 @@
 
 ## 功能特性
 
-- 采集：主机、OS、系统时间、CPU 型号/核心数、内存、磁盘、负载、网卡（MAC/MTU/状态/IP/流量速率）、TCP 探测延迟、进程与服务健康检查、CPU/内存占用 Top 5 进程。
+- 采集：主机、OS、系统时间、备注别名（alias）、CPU 型号/核心数、内存、磁盘、负载、网卡（MAC/MTU/状态/IP/流量速率）、TCP 探测延迟、进程与服务健康检查、CPU/内存占用 Top 5 进程。
 - 分组：Agent 配置 `group` 指定所属分组，控制台按分组展示；未配置归入 `DEFAULT`。
 - 主页（5 秒局部刷新，不整页刷新）：
   - 实时更新节点状态、CPU/内存/磁盘、负载（按核数归一化百分比 + 原始值）、网络速率（已启用网卡汇总）、探测延迟、Agent 系统时间与告警；
@@ -13,6 +13,7 @@
   - 离线声音报警：节点离线立即响铃并每 30 秒重复，点击「停止报警」确认当前离线批次，下一个设备离线时重新报警。
 - 节点详情页：摘要卡片、内存、磁盘（全部分区）、已启用网卡（仅名称/MAC/IPv4）、服务与进程表格、进程资源 Top 5（CPU/内存占用）、告警，5 秒局部刷新。
 - 告警：超出 `offline_after` 未上报即离线；网络不可达或 TCP 延迟超过 `latency_threshold_ms` 触发网络告警。
+- 节点删除：`server.exe -remove <node_id>`，输入 6 位随机验证码确认后删除数据库中的节点及其历史指标与告警。
 - 安全与存储：Bearer Token 鉴权、2 MiB 请求限制、SQLite 持久化、Web 仪表盘与 JSON API。
 - 启动提示：Server/Agent 启动时在终端输出生效配置（Token 脱敏显示）。
 
@@ -82,6 +83,7 @@ disk_threshold_percent: 80   # 磁盘使用率变红阈值（%）
 server_url: http://127.0.0.1:8080  # Server 地址（必填）
 token: 123456                      # 与 Server 相同的 Token（必填）
 node_id: web-01                    # 节点 ID（默认取主机名）
+alias: 生产环境 Web 服务器         # 备注别名，显示在主页节点卡片与详情页标题中
 group: web                         # 所属分组（默认 DEFAULT）
 interval: 10s                      # 上报间隔（默认 30s）
 probe_target: 1.1.1.1:443          # TCP 探测目标（省略端口默认 443）
@@ -98,6 +100,14 @@ services:
 1. 启动 Server：`server.exe -config server.yaml`（Linux 使用 `server-linux-amd64`）。
 2. 在被监控设备启动 Agent：`agent.exe -config agent.yaml`；使用 `-once` 可只采集上报一次，`Ctrl+C` 停止。
 3. 打开 `http://server:8080/` 查看仪表盘；`GET /api/v1/nodes` 获取 JSON。
+
+### 删除节点
+
+```powershell
+server.exe -remove <node_id>
+```
+
+程序会先打印 6 位随机验证码，输入一致后才会删除数据库中对应节点（连同历史指标与告警），删除后主页不再显示该节点。
 
 ## 注册为 Windows 服务
 
