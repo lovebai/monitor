@@ -15,7 +15,7 @@
 - 告警：超出 `offline_after` 未上报即离线；网络不可达或 TCP 延迟超过 `latency_threshold_ms` 触发网络告警。
 - 节点删除：`server.exe -remove <node_id>`，输入 6 位随机验证码确认后删除数据库中的节点及其历史指标与告警。
 - 读接口鉴权：`auth_enabled: true` 时，主页/详情页/JSON 读接口需登录（会话 Cookie，默认关闭）；Agent 上报仍使用 Bearer Token，不受影响。
-- 安全与存储：Bearer Token 上报鉴权（支持每节点独立 Token + node_id 绑定）、可选登录鉴权、2 MiB 请求限制、SQLite 持久化（含 Token 的配置与数据库自动收紧权限 0600）、Web 仪表盘与 JSON API。
+- 安全与存储：Bearer Token 上报鉴权（全部使用每节点独立 Token，node_id 绑定）、可选登录鉴权、2 MiB 请求限制、SQLite 持久化（含 Token 的配置与数据库自动收紧权限 0600）、Web 仪表盘与 JSON API。
 - 启动提示：Server/Agent 启动时在终端输出版本号（按构建日期命名）与生效配置（Token 脱敏显示）。
 
 平台支持：
@@ -68,7 +68,6 @@ powershell -ExecutionPolicy Bypass -File build.ps1 -Legacy
 
 ```yaml
 listen: :8080                # 监听地址
-token: 123456                # 鉴权 Token（必填）
 database_path: monitor.db    # SQLite 数据库路径
 offline_after: 90s           # 超过该时长未上报判定离线
 latency_threshold_ms: 500    # 网络延迟告警阈值（ms）
@@ -78,12 +77,12 @@ history_retention_days: 30    # metrics 历史数据保留天数，超期数据�
 auth_enabled: false           # 是否开启网页/JSON 读接口登录鉴权（默认关闭）
 auth_username: admin          # 开启鉴权时的登录用户名
 auth_password: 123456         # 开启鉴权时的登录密码
-agent_tokens:                 # 每节点独立 Token（node_id 绑定），未列出的节点使用全局 token
+agent_tokens:                 # 每节点独立 Token（node_id 绑定，必填）
   web-01: changeme-0001
   web-02: changeme-0002
 ```
 
-`agent_tokens` 语义：配置了独立 Token 的节点只能用该 Token 上报（Token 与 node_id 绑定，防止一个 Token 泄露后冒充任意节点）；未配置的节点回退到全局 `token`。比较使用恒定时间算法，避免时序侧信道。轮换方式：同步修改 `server.yaml` 与对应 `agent.yaml` 后重启 Server 与 Agent；Linux 上 Server 启动时会自动将数据库与 Agent 配置文件的权限收紧为 0600。
+`agent_tokens` 语义：所有 Agent 必须在此登记独立 Token（Token 与 node_id 绑定，防止一个 Token 泄露后冒充任意节点）；未登记的 node_id 上报一律返回 401。比较使用恒定时间算法，避免时序侧信道。轮换方式：同步修改 `server.yaml` 与对应 `agent.yaml` 后重启 Server 与 Agent；Linux 上 Server 启动时会自动将数据库与 Agent 配置文件的权限收紧为 0600。
 
 ### 配置 Agent
 
@@ -91,7 +90,7 @@ agent_tokens:                 # 每节点独立 Token（node_id 绑定），未�
 
 ```yaml
 server_url: http://127.0.0.1:8080  # Server 地址（必填）
-token: 123456                      # 与 Server 相同的 Token（必填）
+token: changeme-0001               # 该节点独立 Token，与 server.yaml 的 agent_tokens 中本节点值一致（必填）
 node_id: web-01                    # 节点 ID（默认取主机名）
 alias: 生产环境 Web 服务器           # 备注别名，显示在主页节点卡片与详情页标题中
 group: web                         # 所属分组（默认 DEFAULT）

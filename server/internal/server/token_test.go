@@ -12,7 +12,7 @@ import (
 
 func newHandlerWithTokens(t *testing.T, perAgent map[string]string) *Handler {
 	t.Helper()
-	cfg := Config{Token: "global", AgentTokens: perAgent, DatabasePath: filepath.Join(t.TempDir(), "monitor-test.db"), OfflineAfter: time.Minute}
+	cfg := Config{AgentTokens: perAgent, DatabasePath: filepath.Join(t.TempDir(), "monitor-test.db"), OfflineAfter: time.Minute}
 	h, err := New(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -38,13 +38,13 @@ func TestAgentTokenBinding(t *testing.T) {
 		node, token string
 		want        int
 	}{
-		{"n1", "tok1", http.StatusNoContent},      // 独立 Token 匹配
-		{"n2", "tok2", http.StatusNoContent},      // 独立 Token 匹配
-		{"n1", "tok2", http.StatusUnauthorized},   // 拿他节点的 Token 上报 → 拒绝（身份绑定生效）
-		{"n1", "global", http.StatusUnauthorized}, // 配置独立 Token 后全局 Token 不再适用
+		{"n1", "tok1", http.StatusNoContent},    // 独立 Token 匹配
+		{"n2", "tok2", http.StatusNoContent},    // 独立 Token 匹配
+		{"n1", "tok2", http.StatusUnauthorized}, // 拿他节点的 Token 上报 → 拒绝（身份绑定生效）
+		{"n1", "wrong", http.StatusUnauthorized},
 		{"n1", "", http.StatusUnauthorized},
-		{"n3", "global", http.StatusNoContent}, // 未配置独立 Token → 回退全局
-		{"n3", "tok1", http.StatusUnauthorized},
+		{"n3", "tok1", http.StatusUnauthorized}, // 未配置独立 Token → 拒绝
+		{"n3", "anything", http.StatusUnauthorized},
 	}
 	for _, c := range cases {
 		if got := postReportCode(h, c.node, c.token); got != c.want {
@@ -53,12 +53,9 @@ func TestAgentTokenBinding(t *testing.T) {
 	}
 }
 
-func TestGlobalTokenFallback(t *testing.T) {
+func TestUnlistedNodeRejected(t *testing.T) {
 	h := newHandlerWithTokens(t, nil)
-	if got := postReportCode(h, "n1", "global"); got != http.StatusNoContent {
-		t.Errorf("global token = %d, want 204", got)
-	}
-	if got := postReportCode(h, "n1", "wrong"); got != http.StatusUnauthorized {
-		t.Errorf("wrong token = %d, want 401", got)
+	if got := postReportCode(h, "n1", "whatever"); got != http.StatusUnauthorized {
+		t.Errorf("unlisted node = %d, want 401", got)
 	}
 }

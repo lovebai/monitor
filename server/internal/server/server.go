@@ -22,7 +22,6 @@ import (
 )
 
 type Config struct {
-	Token                string
 	DatabasePath         string
 	OfflineAfter         time.Duration
 	LatencyThresholdMS   float64
@@ -262,14 +261,14 @@ func (h *Handler) ingest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// validAgentToken 校验 Agent 上报 Token：
-// 配置了该 node_id 的独立 Token 时必须与之匹配（Token↔node_id 绑定），
-// 未配置独立 Token 的节点回退到全局 Token；比较均为恒定时间，避免时序侧信道。
+// validAgentToken 校验 Agent 上报 Token：所有 Agent 均使用与 node_id 绑定的独立 Token，
+// 未配置或配置了错误 Token 一律拒绝；比较为恒定时间，避免时序侧信道。
 func (h *Handler) validAgentToken(nodeID, token string) bool {
-	if t, ok := h.cfg.AgentTokens[nodeID]; ok && t != "" {
-		return subtle.ConstantTimeCompare([]byte(t), []byte(token)) == 1
+	t, ok := h.cfg.AgentTokens[nodeID]
+	if !ok || t == "" {
+		return false
 	}
-	return subtle.ConstantTimeCompare([]byte(h.cfg.Token), []byte(token)) == 1
+	return subtle.ConstantTimeCompare([]byte(t), []byte(token)) == 1
 }
 
 func (h *Handler) setAlert(node, kind string, active bool, message string) {

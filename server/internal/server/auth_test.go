@@ -12,7 +12,7 @@ import (
 
 func newTestHandlerAuth(t *testing.T, auth bool) *Handler {
 	t.Helper()
-	cfg := Config{Token: "t", DatabasePath: filepath.Join(t.TempDir(), "monitor-test.db"), OfflineAfter: time.Minute}
+	cfg := Config{AgentTokens: map[string]string{"n1": "t"}, DatabasePath: filepath.Join(t.TempDir(), "monitor-test.db"), OfflineAfter: time.Minute}
 	if auth {
 		cfg.AuthEnabled = true
 		cfg.AuthUsername = "admin"

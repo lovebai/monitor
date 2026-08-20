@@ -7,7 +7,7 @@ import (
 )
 
 func TestRemoveNode(t *testing.T) {
-	h, err := New(Config{Token: "t", DatabasePath: filepath.Join(t.TempDir(), "monitor-test.db"), OfflineAfter: time.Minute})
+	h, err := New(Config{AgentTokens: map[string]string{"n1": "t"}, DatabasePath: filepath.Join(t.TempDir(), "monitor-test.db"), OfflineAfter: time.Minute})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestRemoveNode(t *testing.T) {
 }
 
 func TestPruneMetricsRetention(t *testing.T) {
-	h, err := New(Config{Token: "t", DatabasePath: filepath.Join(t.TempDir(), "monitor-test.db"), HistoryRetentionDays: 30})
+	h, err := New(Config{AgentTokens: map[string]string{"n1": "t"}, DatabasePath: filepath.Join(t.TempDir(), "monitor-test.db"), HistoryRetentionDays: 30})
 	if err != nil {
 		t.Fatal(err)
 	}

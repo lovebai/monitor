@@ -12,7 +12,6 @@ import (
 // Values can be written as plain text or quoted strings.
 type FileConfig struct {
 	Listen               string
-	Token                string
 	DatabasePath         string
 	OfflineAfterText     string
 	LatencyThresholdMS   float64
@@ -61,8 +60,6 @@ func LoadFileConfig(path string) (FileConfig, error) {
 			inTokens = true
 		case "listen":
 			c.Listen = value
-		case "token":
-			c.Token = value
 		case "database_path":
 			c.DatabasePath = value
 		case "offline_after":
@@ -84,11 +81,8 @@ func LoadFileConfig(path string) (FileConfig, error) {
 			c.AuthPassword = value
 		}
 	}
-	if c.Token == "" {
-		c.Token = os.Getenv("MONITOR_TOKEN")
-	}
-	if c.Token == "" {
-		return c, fmt.Errorf("token is required in %s or MONITOR_TOKEN", path)
+	if len(c.AgentTokens) == 0 {
+		return c, fmt.Errorf("agent_tokens 至少需要配置一个节点 Token（node_id 绑定）")
 	}
 	if _, err := time.ParseDuration(c.OfflineAfterText); err != nil {
 		return c, fmt.Errorf("invalid offline_after: %w", err)
@@ -100,5 +94,5 @@ func LoadFileConfig(path string) (FileConfig, error) {
 }
 func (c FileConfig) Runtime() Config {
 	d, _ := time.ParseDuration(c.OfflineAfterText)
-	return Config{Token: c.Token, DatabasePath: c.DatabasePath, OfflineAfter: d, LatencyThresholdMS: c.LatencyThresholdMS, MemoryThresholdPct: c.MemoryThresholdPct, DiskThresholdPct: c.DiskThresholdPct, HistoryRetentionDays: c.HistoryRetentionDays, AuthEnabled: c.AuthEnabled, AuthUsername: c.AuthUsername, AuthPassword: c.AuthPassword, AgentTokens: c.AgentTokens}
+	return Config{DatabasePath: c.DatabasePath, OfflineAfter: d, LatencyThresholdMS: c.LatencyThresholdMS, MemoryThresholdPct: c.MemoryThresholdPct, DiskThresholdPct: c.DiskThresholdPct, HistoryRetentionDays: c.HistoryRetentionDays, AuthEnabled: c.AuthEnabled, AuthUsername: c.AuthUsername, AuthPassword: c.AuthPassword, AgentTokens: c.AgentTokens}
 }

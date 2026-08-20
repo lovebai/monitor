@@ -8,7 +8,7 @@ import (
 
 func TestLoadFileConfigHistoryRetention(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "server.yaml")
-	if err := os.WriteFile(p, []byte("token: t\nhistory_retention_days: 7\n"), 0644); err != nil {
+	if err := os.WriteFile(p, []byte("agent_tokens:\n  n1: t\nhistory_retention_days: 7\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	c, err := LoadFileConfig(p)
@@ -25,7 +25,7 @@ func TestLoadFileConfigHistoryRetention(t *testing.T) {
 
 func TestLoadFileConfigDefaultRetention(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "server.yaml")
-	if err := os.WriteFile(p, []byte("token: t\n"), 0644); err != nil {
+	if err := os.WriteFile(p, []byte("agent_tokens:\n  n1: t\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	c, err := LoadFileConfig(p)
@@ -39,7 +39,7 @@ func TestLoadFileConfigDefaultRetention(t *testing.T) {
 
 func TestLoadFileConfigAuth(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "server.yaml")
-	if err := os.WriteFile(p, []byte("token: t\nauth_enabled: true\nauth_username: admin\nauth_password: secret\n"), 0644); err != nil {
+	if err := os.WriteFile(p, []byte("agent_tokens:\n  n1: t\nauth_enabled: true\nauth_username: admin\nauth_password: secret\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	c, err := LoadFileConfig(p)
@@ -53,7 +53,7 @@ func TestLoadFileConfigAuth(t *testing.T) {
 
 func TestLoadFileConfigAuthMissingCredentials(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "server.yaml")
-	if err := os.WriteFile(p, []byte("token: t\nauth_enabled: true\n"), 0644); err != nil {
+	if err := os.WriteFile(p, []byte("agent_tokens:\n  n1: t\nauth_enabled: true\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := LoadFileConfig(p); err == nil {
@@ -63,7 +63,7 @@ func TestLoadFileConfigAuthMissingCredentials(t *testing.T) {
 
 func TestLoadFileConfigAgentTokens(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "server.yaml")
-	if err := os.WriteFile(p, []byte("token: global\nagent_tokens:\n  web-01: abc123\n  web-02: def456\n"), 0644); err != nil {
+	if err := os.WriteFile(p, []byte("agent_tokens:\n  web-01: abc123\n  web-02: def456\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	c, err := LoadFileConfig(p)
@@ -75,5 +75,15 @@ func TestLoadFileConfigAgentTokens(t *testing.T) {
 	}
 	if got := c.Runtime().AgentTokens; got["web-01"] != "abc123" {
 		t.Errorf("Runtime AgentTokens = %v", got)
+	}
+}
+
+func TestLoadFileConfigRequiresAgentTokens(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "server.yaml")
+	if err := os.WriteFile(p, []byte("listen: :8080\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadFileConfig(p); err == nil {
+		t.Fatal("server config without agent_tokens should fail")
 	}
 }

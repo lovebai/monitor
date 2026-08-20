@@ -1,6 +1,5 @@
 # Server 仅从此文件加载运行参数；不要将真实令牌提交到代码库。
 listen: 0.0.0.0:8080
-token: 123456
 database_path: monitor.db
 offline_after: 60s
 latency_threshold_ms: 500
@@ -13,8 +12,8 @@ history_retention_days: 30
 auth_enabled: false
 auth_username: admin
 auth_password: 123456
-# Agent 独立 Token（node_id 绑定）：配置后该节点必须使用对应 Token 上报，
-# 未列出的节点仍使用上方全局 token；轮换时同步修改 server.yaml 与对应 agent.yaml 并重启
+# Agent 独立 Token（node_id 绑定，必填）：所有 Agent 必须在此登记，
+# 未登记的 node_id 上报将被拒绝；轮换时同步修改 server.yaml 与对应 agent.yaml 并重启
 agent_tokens:
   web-01: changeme-0001
   web-02: changeme-0002
