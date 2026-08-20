@@ -9,3 +9,7 @@ memory_threshold_percent: 80
 disk_threshold_percent: 80
 # metrics 历史数据保留天数，超期数据在每次 Agent 上报时自动清理
 history_retention_days: 30
+# 是否开启网页/JSON 接口登录鉴权；true 时查看页面和读取接口需要登录（Agent 上报仍走 token）
+auth_enabled: false
+auth_username: admin
+auth_password: 123456

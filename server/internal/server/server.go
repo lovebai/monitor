@@ -1,13 +1,17 @@
 package server
 
 import (
+	"crypto/rand"
+	"crypto/subtle"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"monitor-server/internal/model"
@@ -23,12 +27,18 @@ type Config struct {
 	MemoryThresholdPct   float64
 	DiskThresholdPct     float64
 	HistoryRetentionDays int
+	AuthEnabled          bool
+	AuthUsername         string
+	AuthPassword         string
 }
 type Handler struct {
 	cfg       Config
 	db        *sql.DB
 	dashboard *template.Template
 	detail    *template.Template
+	login     *template.Template
+	mu        sync.Mutex
+	sessions  map[string]time.Time
 }
 type nodeView struct {
 	model.Report
@@ -114,15 +124,31 @@ func New(cfg Config) (*Handler, error) {
 	}
 	t := template.Must(template.New("dashboard").Funcs(funcs).Parse(page))
 	d := template.Must(template.New("detail").Funcs(funcs).Parse(detailPage2))
-	return &Handler{cfg: cfg, db: db, dashboard: t, detail: d}, nil
+	l := template.Must(template.New("login").Parse(loginPage))
+	return &Handler{cfg: cfg, db: db, dashboard: t, detail: d, login: l, sessions: map[string]time.Time{}}, nil
 }
 func (h *Handler) Close() error { return h.db.Close() }
 
 // 还是用gin舒服,不想改了
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if h.cfg.AuthEnabled && r.URL.Path != "/api/v1/reports" && r.URL.Path != "/login" && r.URL.Path != "/logout" && !h.isAuthed(r) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			w.Header().Set("Content-Type", "application/json")
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
 	switch {
 	case r.Method == http.MethodPost && r.URL.Path == "/api/v1/reports":
 		h.ingest(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/login":
+		h.loginPage(w, r)
+	case r.Method == http.MethodPost && r.URL.Path == "/login":
+		h.handleLogin(w, r)
+	case r.Method == http.MethodPost && r.URL.Path == "/logout":
+		h.logout(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/v1/nodes":
 		h.json(w, r)
 	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/nodes/") && strings.HasSuffix(r.URL.Path, "/history"):
@@ -134,6 +160,63 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(w, r)
 	}
+}
+func (h *Handler) isAuthed(r *http.Request) bool {
+	c, err := r.Cookie("session")
+	if err != nil {
+		return false
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	exp, ok := h.sessions[c.Value]
+	return ok && time.Now().Before(exp)
+}
+func (h *Handler) newSession() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return ""
+	}
+	tok := hex.EncodeToString(b)
+	now := time.Now()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.sessions[tok] = now.Add(7 * 24 * time.Hour)
+	for k, exp := range h.sessions {
+		if now.After(exp) {
+			delete(h.sessions, k)
+		}
+	}
+	return tok
+}
+func (h *Handler) loginPage(w http.ResponseWriter, r *http.Request) {
+	if h.isAuthed(r) {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = h.login.Execute(w, struct{ Err bool }{r.URL.Query().Get("err") != ""})
+}
+func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	u := r.FormValue("username")
+	p := r.FormValue("password")
+	if subtle.ConstantTimeCompare([]byte(u), []byte(h.cfg.AuthUsername)) == 1 &&
+		subtle.ConstantTimeCompare([]byte(p), []byte(h.cfg.AuthPassword)) == 1 {
+		http.SetCookie(w, &http.Cookie{Name: "session", Value: h.newSession(), Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 7 * 86400})
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/login?err=1", http.StatusFound)
+}
+func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
+	if c, err := r.Cookie("session"); err == nil {
+		h.mu.Lock()
+		delete(h.sessions, c.Value)
+		h.mu.Unlock()
+	}
+	http.SetCookie(w, &http.Cookie{Name: "session", Value: "", Path: "/", HttpOnly: true, MaxAge: -1})
+	http.Redirect(w, r, "/login", http.StatusFound)
 }
 func (h *Handler) ingest(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Authorization") != "Bearer "+h.cfg.Token {
@@ -444,3 +527,34 @@ func sysTime(t time.Time) string {
 	}
 	return t.Format("2006-01-02 15:04:05")
 }
+
+const loginPage = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>登录 · Server Monitor</title>
+<style>
+body{margin:0;color:#17233a;font:14px system-ui;background:#edf3fa;display:flex;align-items:center;justify-content:center;min-height:100vh}
+.box{background:#fff;border:1px solid #d9e4f0;border-radius:17px;box-shadow:0 5px 20px #5470910b;padding:34px 40px;width:320px}
+h1{font-size:19px;margin:0 0 6px}
+h1:before{content:'//';color:#2ed5c3;margin-right:8px}
+p{color:#6680a5;margin:0 0 20px}
+label{color:#647da0;display:block;margin:12px 0 6px}
+input{width:100%;box-sizing:border-box;border:1px solid #d5e2f2;border-radius:9px;padding:9px 11px;font:inherit;outline:none}
+input:focus{border-color:#2ed5c3}
+button{margin-top:22px;width:100%;background:#2ed5c3;border:none;border-radius:9px;color:#fff;font:inherit;font-weight:750;padding:10px;cursor:pointer}
+.err{color:#e95169;margin-top:12px;text-align:center}
+</style>
+</head>
+<body>
+<form class="box" method="post" action="/login">
+<h1>Server Monitor</h1>
+<p>请输入登录凭据</p>
+<label>用户名</label><input name="username" autocomplete="username" required>
+<label>密码</label><input type="password" name="password" autocomplete="current-password" required>
+<button type="submit">登录</button>
+{{if .Err}}<div class="err">用户名或密码错误</div>{{end}}
+</form>
+</body>
+</html>`

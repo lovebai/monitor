@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -18,6 +19,9 @@ type FileConfig struct {
 	MemoryThresholdPct   float64
 	DiskThresholdPct     float64
 	HistoryRetentionDays int
+	AuthEnabled          bool
+	AuthUsername         string
+	AuthPassword         string
 }
 
 func LoadFileConfig(path string) (FileConfig, error) {
@@ -53,6 +57,13 @@ func LoadFileConfig(path string) (FileConfig, error) {
 			fmt.Sscanf(value, "%f", &c.DiskThresholdPct)
 		case "history_retention_days":
 			fmt.Sscanf(value, "%d", &c.HistoryRetentionDays)
+		case "auth_enabled":
+			b, _ := strconv.ParseBool(value)
+			c.AuthEnabled = b
+		case "auth_username":
+			c.AuthUsername = value
+		case "auth_password":
+			c.AuthPassword = value
 		}
 	}
 	if c.Token == "" {
@@ -64,9 +75,12 @@ func LoadFileConfig(path string) (FileConfig, error) {
 	if _, err := time.ParseDuration(c.OfflineAfterText); err != nil {
 		return c, fmt.Errorf("invalid offline_after: %w", err)
 	}
+	if c.AuthEnabled && (c.AuthUsername == "" || c.AuthPassword == "") {
+		return c, fmt.Errorf("auth_enabled 需要同时配置 auth_username 和 auth_password")
+	}
 	return c, nil
 }
 func (c FileConfig) Runtime() Config {
 	d, _ := time.ParseDuration(c.OfflineAfterText)
-	return Config{Token: c.Token, DatabasePath: c.DatabasePath, OfflineAfter: d, LatencyThresholdMS: c.LatencyThresholdMS, MemoryThresholdPct: c.MemoryThresholdPct, DiskThresholdPct: c.DiskThresholdPct, HistoryRetentionDays: c.HistoryRetentionDays}
+	return Config{Token: c.Token, DatabasePath: c.DatabasePath, OfflineAfter: d, LatencyThresholdMS: c.LatencyThresholdMS, MemoryThresholdPct: c.MemoryThresholdPct, DiskThresholdPct: c.DiskThresholdPct, HistoryRetentionDays: c.HistoryRetentionDays, AuthEnabled: c.AuthEnabled, AuthUsername: c.AuthUsername, AuthPassword: c.AuthPassword}
 }

@@ -80,5 +80,10 @@ func printServerConfig(path string, c server.FileConfig) {
 	log.Printf("内存阈值: %.0f%%", c.MemoryThresholdPct)
 	log.Printf("磁盘阈值: %.0f%%", c.DiskThresholdPct)
 	log.Printf("历史保留: %d 天", c.HistoryRetentionDays)
+	if c.AuthEnabled {
+		log.Printf("网页鉴权: 开启（用户 %s）", c.AuthUsername)
+	} else {
+		log.Printf("网页鉴权: 关闭")
+	}
 	log.Printf("鉴权 Token: ********")
 }
