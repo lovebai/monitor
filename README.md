@@ -84,7 +84,7 @@ history_retention_days: 30    # metrics 历史数据保留天数，超期数据�
 server_url: http://127.0.0.1:8080  # Server 地址（必填）
 token: 123456                      # 与 Server 相同的 Token（必填）
 node_id: web-01                    # 节点 ID（默认取主机名）
-alias: 生产环境 Web 服务器         # 备注别名，显示在主页节点卡片与详情页标题中
+alias: 生产环境 Web 服务器           # 备注别名，显示在主页节点卡片与详情页标题中
 group: web                         # 所属分组（默认 DEFAULT）
 interval: 10s                      # 上报间隔（默认 30s）
 probe_target: 1.1.1.1:443          # TCP 探测目标（省略端口默认 443）
@@ -200,4 +200,3 @@ Agent 每次上报对该表整行覆盖（UPSERT），只保留最新快照；�
 
 - 使用 HTTPS（反向代理或服务端 TLS），将 Token 放入安全的配置管理系统。
 - Windows 用 `agent.exe -install` 注册为服务，Linux 用 systemd（见上文示例）；上报失败会在下一个间隔自动重试。
-- 告警目前实时展示在控制台；可按需接入邮件、Webhook、企业微信等通知渠道。
