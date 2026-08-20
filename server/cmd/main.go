@@ -16,7 +16,11 @@ import (
 	"monitor-server/internal/server"
 )
 
+// Version 为构建版本号，按构建日期命名；build.ps1 会通过 -ldflags 注入当天日期。
+var Version = "2026.08.20"
+
 func main() {
+	log.Printf("Server Monitor 版本: %s", Version)
 	configPath := flag.String("config", "server.yaml", "server YAML configuration file")
 	remove := flag.String("remove", "", "删除指定 node_id 的节点（需输入 6 位验证码确认）")
 	flag.Parse()

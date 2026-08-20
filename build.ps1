@@ -6,6 +6,8 @@ param([switch]$Legacy)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $bin = Join-Path $root 'bin'
+$ver = Get-Date -Format 'yyyy.MM.dd'
+$ldflags = "-s -w -X main.Version=$ver"
 New-Item -ItemType Directory -Force -Path $bin | Out-Null
 
 function Build-One($dir, $name, $goos, $goarch) {
@@ -14,8 +16,8 @@ function Build-One($dir, $name, $goos, $goarch) {
         $env:GOOS = $goos
         $env:GOARCH = $goarch
         $env:CGO_ENABLED = '0'
-        go build -trimpath -ldflags '-s -w' -o (Join-Path $bin $name) ./cmd
-        Write-Host "built $name"
+        go build -trimpath -ldflags $ldflags -o (Join-Path $bin $name) ./cmd
+        Write-Host "built $name (version $ver)"
     } finally {
         Pop-Location
     }
@@ -45,8 +47,8 @@ if ($Legacy) {
         $env:GOOS = 'windows'
         $env:GOARCH = 'amd64'
         $env:CGO_ENABLED = '0'
-        & $go120 build -trimpath -ldflags '-s -w' -modfile legacy.go.mod -o (Join-Path $bin 'agent-win2008.exe') ./cmd
-        Write-Host 'built agent-win2008.exe (Go 1.20, Windows 7 / Server 2008 R2+)'
+        & $go120 build -trimpath -ldflags $ldflags -modfile legacy.go.mod -o (Join-Path $bin 'agent-win2008.exe') ./cmd
+        Write-Host "built agent-win2008.exe (Go 1.20, Windows 7 / Server 2008 R2+, version $ver)"
     } finally {
         Pop-Location
     }

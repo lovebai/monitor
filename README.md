@@ -16,7 +16,7 @@
 - 节点删除：`server.exe -remove <node_id>`，输入 6 位随机验证码确认后删除数据库中的节点及其历史指标与告警。
 - 读接口鉴权：`auth_enabled: true` 时，主页/详情页/JSON 读接口需登录（会话 Cookie，默认关闭）；Agent 上报仍使用 Bearer Token，不受影响。
 - 安全与存储：Bearer Token 上报鉴权、可选登录鉴权、2 MiB 请求限制、SQLite 持久化、Web 仪表盘与 JSON API。
-- 启动提示：Server/Agent 启动时在终端输出生效配置（Token 脱敏显示）。
+- 启动提示：Server/Agent 启动时在终端输出版本号（按构建日期命名）与生效配置（Token 脱敏显示）。
 
 平台支持：
 
@@ -38,7 +38,7 @@
 powershell -ExecutionPolicy Bypass -File build.ps1
 ```
 
-产物输出到 `bin/`：Windows 版 `server.exe` / `agent.exe`，Linux amd64 版 `server-linux-amd64` / `agent-linux-amd64`。
+产物输出到 `bin/`：Windows 版 `server.exe` / `agent.exe`，Linux amd64 版 `server-linux-amd64` / `agent-linux-amd64`。构建时自动将当天日期（如 `2026.08.20`）写入版本号，Server/Agent 启动日志会输出。
 
 开发调试也可以直接运行源码：
 

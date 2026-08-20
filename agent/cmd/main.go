@@ -11,7 +11,11 @@ import (
 	"monitor-agent/internal/agent"
 )
 
+// Version 为构建版本号，按构建日期命名；build.ps1 会通过 -ldflags 注入当天日期。
+var Version = "2026.08.20"
+
 func main() {
+	log.Printf("Agent Monitor 版本: %s", Version)
 	configPath := flag.String("config", "agent.yaml", "configuration file (JSON or simple YAML)")
 	once := flag.Bool("once", false, "collect and report once, then exit")
 	install := flag.Bool("install", false, "register and start as a Windows service")
