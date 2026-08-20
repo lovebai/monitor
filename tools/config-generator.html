@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monitor 配置生成器</title>
+<style>
+body{margin:0;color:#17233a;font:14px system-ui;background:#edf3fa;background-image:linear-gradient(#dce8f455 1px,transparent 1px),linear-gradient(90deg,#dce8f455 1px,transparent 1px);background-size:55px 55px}
+.wrap{max-width:1240px;margin:auto;padding:24px 4%}
+header h1{font-size:21px;margin:0 0 6px}
+header h1:before{content:'//';color:#2ed5c3;margin-right:8px}
+.hint{color:#8ba0bf;font-size:13px;margin:0 0 22px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:920px){.cols{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid #d9e4f0;border-radius:14px;padding:20px}
+.card h2{font-size:17px;margin:0 0 4px}
+.card h2:before{content:'//';color:#2ed5c3;margin-right:8px}
+.card>p{color:#647da0;font-size:12px;margin:0 0 12px}
+label{display:block;color:#647da0;margin:12px 0 5px;font-size:13px}
+input,textarea{width:100%;box-sizing:border-box;border:1px solid #d5e2f2;border-radius:8px;padding:8px 10px;font:inherit;outline:none}
+input:focus,textarea:focus{border-color:#2ed5c3}
+textarea{min-height:64px;resize:vertical}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.chk{display:flex;align-items:center;gap:7px;margin-top:14px}
+.chk input{width:auto}
+.row{display:flex;gap:8px;margin-bottom:8px}
+.row input{flex:1}
+.btn{background:#2ed5c3;border:none;border-radius:8px;color:#fff;font:inherit;font-weight:750;padding:9px 16px;cursor:pointer;margin-top:12px}
+.btn.ghost{background:#fff;color:#3b719d;border:1px solid #d5e2f2;padding:6px 10px;margin-top:0;font-weight:400}
+.btn.small{font-size:12px}
+.btn:hover{opacity:.88}
+.err{color:#e95169;font-size:13px;min-height:18px;margin-top:8px}
+.ok{color:#2dcebc}
+.out-head{display:flex;justify-content:space-between;align-items:center;margin-top:18px}
+.out-head h3{margin:0;font-size:14px}
+.out-head .btn{margin-left:8px}
+pre{background:#f6fafd;border:1px solid #e2eaf4;border-radius:10px;padding:14px;overflow:auto;font-size:12px;min-height:130px;white-space:pre;margin:10px 0 0}
+.reg-hint{font-size:12px;color:#8ba0bf;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><h1>Monitor 配置生成器</h1><p class="hint">可视化生成 <b>server.yaml</b> 与 <b>agent.yaml</b>，输出格式与 Server / Agent 内置解析器完全一致；填写后点“生成”，可复制或下载。</p></header>
+<main class="cols">
+<section class="card">
+<h2>Server 配置</h2>
+<p>监控服务端参数与各 Agent 独立 Token 登记</p>
+<label>监听地址</label><input id="s-listen" value=":8080">
+<label>数据库路径</label><input id="s-db" value="monitor.db">
+<label>离线判定时长</label><input id="s-offline" value="90s">
+<div class="row3">
+<div><label>延迟阈值 ms</label><input id="s-lat" type="number" value="500"></div>
+<div><label>内存阈值 %</label><input id="s-mem" type="number" value="80"></div>
+<div><label>磁盘阈值 %</label><input id="s-disk" type="number" value="80"></div>
+</div>
+<label>历史保留（天）</label><input id="s-ret" type="number" value="30">
+<label class="chk"><input type="checkbox" id="s-auth"> 开启网页/JSON 读接口登录鉴权</label>
+<div id="s-auth-fields" style="display:none">
+<div class="row3">
+<div><label>登录用户名</label><input id="s-user" value="admin"></div>
+<div><label>登录密码</label><input id="s-pass" type="password"></div>
+</div>
+</div>
+<label>Agent 独立 Token（node_id 绑定，必填至少一项）</label>
+<div id="token-rows"></div>
+<button class="btn ghost" id="add-token" type="button">＋ 添加节点 Token</button>
+<div class="err" id="s-err"></div>
+<button class="btn" id="gen-server" type="button">生成 server.yaml</button>
+<div class="out-head"><h3>server.yaml</h3><span><button class="btn ghost small" id="copy-server" type="button">复制</button><button class="btn ghost small" id="dl-server" type="button">下载</button></span></div>
+<pre id="out-server">点击“生成 server.yaml”后在此显示…</pre>
+</section>
+
+<section class="card">
+<h2>Agent 配置</h2>
+<p>部署到被监控设备上的采集器参数（每台设备一份）</p>
+<label>Server 地址（必填）</label><input id="a-url" value="http://127.0.0.1:8080">
+<div class="row3">
+<div><label>节点 Token（必填）</label><input id="a-token"></div>
+<div><label>节点 ID（必填）</label><input id="a-node"></div>
+</div>
+<label>备注别名</label><input id="a-alias" placeholder="如：生产环境 Web 服务器">
+<label>所属分组</label><input id="a-group" placeholder="留空归入 DEFAULT">
+<label>上报间隔</label><input id="a-interval" value="30s">
+<label>TCP 探测目标</label><input id="a-probe" placeholder="如 1.1.1.1:443，可留空">
+<label>进程检查（每行一个）</label><textarea id="a-procs" placeholder="nginx&#10;java"></textarea>
+<label>服务检查（每行一个）</label><textarea id="a-svcs" placeholder="ssh&#10;wscsvc"></textarea>
+<button class="btn ghost" id="reg-server" type="button">登记到 Server agent_tokens</button>
+<div class="err" id="a-err"></div>
+<button class="btn" id="gen-agent" type="button">生成 agent.yaml</button>
+<div class="out-head"><h3>agent.yaml</h3><span><button class="btn ghost small" id="copy-agent" type="button">复制</button><button class="btn ghost small" id="dl-agent" type="button">下载</button></span></div>
+<pre id="out-agent">点击“生成 agent.yaml”后在此显示…</pre>
+</section>
+</main>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+function val(id,def){const v=$(id).value.trim();return v===''?def:v}
+function num(id,def){const v=parseFloat($(id).value);return isNaN(v)?def:v}
+// 含 # 或首尾空格的值加引号，避免被当作注释/被裁剪
+function yq(v){v=String(v).trim();if(v==='')return v;const need=v.indexOf('#')>=0||/["']/.test(v);return need?'"'+v.replace(/"/g,'\\"')+'"':v}
+function flash(btn,label){const old=btn.textContent;btn.textContent=label;setTimeout(()=>btn.textContent=old,1200)}
+
+let tokenRows=[];
+function renderTokenRows(){
+  const box=$('token-rows');box.innerHTML='';
+  tokenRows.forEach((t,i)=>{
+    const div=document.createElement('div');div.className='row';
+    const n=document.createElement('input');n.placeholder='node_id';n.value=t.node;
+    n.oninput=()=>tokenRows[i].node=n.value;
+    const k=document.createElement('input');k.placeholder='Token';k.value=t.token;
+    k.oninput=()=>tokenRows[i].token=k.value;
+    const rm=document.createElement('button');rm.className='btn ghost small';rm.type='button';rm.textContent='✕';
+    rm.onclick=()=>{tokenRows.splice(i,1);renderTokenRows()};
+    div.append(n,k,rm);box.append(div);
+  });
+}
+$('add-token').onclick=()=>{tokenRows.push({node:'',token:''});renderTokenRows()};
+$('s-auth').onchange=()=>{$('s-auth-fields').style.display=$('s-auth').checked?'block':'none'};
+$('reg-server').onclick=()=>{
+  const node=val('a-node',''),token=val('a-token','');
+  const err=$('a-err');
+  if(!node||!token){err.textContent='请先填写 Agent 的 node_id 与 Token';return}
+  if(tokenRows.some(t=>t.node.trim()===node)){err.className='err ok';err.textContent='该 node_id 已在 Server 登记列表中'}
+  else{tokenRows.push({node,token});renderTokenRows();err.className='err ok';err.textContent='已登记到 Server agent_tokens'}
+};
+
+$('gen-server').onclick=()=>{
+  const err=$('s-err');err.className='err';err.textContent='';
+  const rows=tokenRows.filter(t=>t.node.trim()&&t.token.trim());
+  if(!rows.length){err.textContent='请至少添加一个节点 Token（node_id + Token）';return}
+  const auth=$('s-auth').checked;
+  if(auth&&!val('s-pass','')){err.textContent='开启鉴权需填写登录密码';return}
+  const L=[];
+  L.push('# server.yaml（由 Monitor 配置生成器生成）');
+  L.push('listen: '+val('s-listen',':8080'));
+  L.push('database_path: '+val('s-db','monitor.db'));
+  L.push('offline_after: '+val('s-offline','90s'));
+  L.push('latency_threshold_ms: '+num('s-lat',500));
+  L.push('memory_threshold_percent: '+num('s-mem',80));
+  L.push('disk_threshold_percent: '+num('s-disk',80));
+  L.push('history_retention_days: '+num('s-ret',30));
+  L.push('auth_enabled: '+auth);
+  if(auth){L.push('auth_username: '+val('s-user','admin'));L.push('auth_password: '+yq(val('s-pass','')))}
+  L.push('agent_tokens:');
+  rows.forEach(t=>L.push('  '+t.node.trim()+': '+t.token.trim()));
+  $('out-server').textContent=L.join('\n');
+};
+$('copy-server').onclick=()=>copyText($('out-server').textContent,$('copy-server'));
+$('dl-server').onclick=()=>download('server.yaml',$('out-server').textContent);
+
+$('gen-agent').onclick=()=>{
+  const err=$('a-err');err.className='err';err.textContent='';
+  const url=val('a-url',''),token=val('a-token',''),node=val('a-node','');
+  if(!url||!token||!node){err.textContent='server_url、token、node_id 为必填';return}
+  const L=[];
+  L.push('# agent.yaml（由 Monitor 配置生成器生成）');
+  L.push('server_url: '+yq(url));
+  L.push('token: '+yq(token));
+  L.push('node_id: '+yq(node));
+  const alias=val('a-alias','');if(alias)L.push('alias: '+yq(alias));
+  const group=val('a-group','');if(group)L.push('group: '+yq(group));
+  L.push('interval: '+val('a-interval','30s'));
+  const probe=val('a-probe','');if(probe)L.push('probe_target: '+yq(probe));
+  const list=id=>$(id).value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const procs=list('a-procs');
+  if(procs.length){L.push('processes:');procs.forEach(p=>L.push('  - '+yq(p)))}
+  const svcs=list('a-svcs');
+  if(svcs.length){L.push('services:');svcs.forEach(s=>L.push('  - '+yq(s)))}
+  $('out-agent').textContent=L.join('\n');
+};
+$('copy-agent').onclick=()=>copyText($('out-agent').textContent,$('copy-agent'));
+$('dl-agent').onclick=()=>download('agent.yaml',$('out-agent').textContent);
+
+async function copyText(text,btn){
+  if(!text||text.indexOf('点击')===0)return;
+  try{await navigator.clipboard.writeText(text)}
+  catch(e){const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove()}
+  flash(btn,'已复制');
+}
+function download(name,text){
+  if(!text||text.indexOf('点击')===0)return;
+  const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+renderTokenRows();
+</script>
+</body>
+</html>

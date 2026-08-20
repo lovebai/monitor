@@ -27,6 +27,7 @@
 
 - `server/`：接收上报、SQLite 历史与告警事件、监控控制台。
 - `agent/`：部署在被监控机器上的采集器。
+- `tools/`：可视化配置生成器（浏览器直接打开 `tools/config-generator.html`，即可生成 `server.yaml` / `agent.yaml`）。
 - `bin/`：构建产物（`server.exe` / `agent.exe` / `server-linux-amd64` / `agent-linux-amd64`）。
 - `build.ps1`：一键构建脚本。
 
