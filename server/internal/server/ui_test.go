@@ -140,6 +140,7 @@ func TestDetailPageTopProcesses(t *testing.T) {
 		"<td>nginx</td><td><span class=\"st ok\">● 运行中 ×2（PID 123 124 ）</span></td>",
 		"<td>sshd</td><td><span class=\"st bad\">⚠ 未运行</span></td>",
 		"进程资源 Top 5", "CPU 占用 Top 5", "内存占用 Top 5",
+		"历史曲线", "hsvg-pct", "hsvg-rate", "hsvg-lat",
 		"<td>1</td><td>chrome</td><td>100</td><td>42.5%</td></tr>",
 		"<td>2</td><td>java</td><td>200</td><td>12.3%</td></tr>",
 		"<td>1</td><td>java</td><td>200</td><td>1.0 GiB（12.5%）</td></tr>",

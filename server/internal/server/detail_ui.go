@@ -37,6 +37,11 @@ a{color:#3b719d;text-decoration:none}
 .topcol table{margin:0}
 .tophead{padding:12px 14px 0;font-weight:750}
 .empty{color:#647da0;text-align:center;padding:18px}
+.hchart svg{display:block;width:100%;height:150px;background:#fbfdff}
+.hhead{display:flex;justify-content:space-between;align-items:center;padding:12px 14px 0;font-weight:750}
+.hvals{font-weight:400;color:#647da0;font-size:12px}
+.hlegend{padding:8px 14px 12px;font-size:12px;color:#5d769a;border-top:1px solid #e9eff8;display:flex;flex-wrap:wrap;gap:12px}
+.hlegend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
 .st{font-weight:750}
 .ok{color:#2dcebc}
 .bad{color:#e95169}
@@ -68,6 +73,22 @@ a{color:#3b719d;text-decoration:none}
 <div class="toprow">
 <div class="checks topcol" id="d-topcpu">{{if .Node.TopCPU}}<div class="tophead">CPU 占用 Top 5</div><table><tr><th>排名</th><th>应用</th><th>PID</th><th>CPU</th></tr>{{range $i, $p := .Node.TopCPU}}<tr><td>{{add $i 1}}</td><td>{{.Name}}</td><td>{{.PID}}</td><td>{{printf "%.1f" .CPUPercent}}%</td></tr>{{end}}</table>{{else}}<div class="tophead">CPU 占用 Top 5</div><table><tr><th>排名</th><th>应用</th><th>PID</th><th>CPU</th></tr><tr><td colspan="4" class="empty">暂无数据</td></tr></table>{{end}}</div>
 <div class="checks topcol" id="d-topmem">{{if .Node.TopMemory}}<div class="tophead">内存占用 Top 5</div><table><tr><th>排名</th><th>应用</th><th>PID</th><th>内存</th></tr>{{range $i, $p := .Node.TopMemory}}<tr><td>{{add $i 1}}</td><td>{{.Name}}</td><td>{{.PID}}</td><td>{{bytes .MemoryBytes}}（{{printf "%.1f" .MemoryPct}}%）</td></tr>{{end}}</table>{{else}}<div class="tophead">内存占用 Top 5</div><table><tr><th>排名</th><th>应用</th><th>PID</th><th>内存</th></tr><tr><td colspan="4" class="empty">暂无数据</td></tr></table>{{end}}</div>
+</div>
+<div class="section">历史曲线</div>
+<div class="checks hchart">
+<div class="hhead">CPU / 内存 / 磁盘 <span class="hvals" id="hvals-pct"></span></div>
+<svg id="hsvg-pct" viewBox="0 0 600 150" preserveAspectRatio="none"></svg>
+<div class="hlegend" id="hlegend-pct"></div>
+</div>
+<div class="checks hchart">
+<div class="hhead">网络速率 <span class="hvals" id="hvals-rate"></span></div>
+<svg id="hsvg-rate" viewBox="0 0 600 150" preserveAspectRatio="none"></svg>
+<div class="hlegend" id="hlegend-rate"></div>
+</div>
+<div class="checks hchart">
+<div class="hhead">网络延迟 <span class="hvals" id="hvals-lat"></span></div>
+<svg id="hsvg-lat" viewBox="0 0 600 150" preserveAspectRatio="none"></svg>
+<div class="hlegend" id="hlegend-lat"></div>
 </div>
 <div id="d-alerts">{{range .Node.Alerts}}<div class="warn">● {{.Message}}（{{ago .CreatedAt}}）</div>{{end}}</div>
 </main>
@@ -103,12 +124,73 @@ function procsTopHTML(list, mode){
   }).join('');
   return title+'<table>'+head+rows+'</table>';
 }
+const HCOL={cpu:'#2ed5c3',memory:'#3b719d',disk:'#e9a23b',rx:'#2ed5c3',tx:'#e95169',latency:'#8a6de9'};
+let histCache={at:0,data:null};
+function histGrid(svg){
+  const NS='http://www.w3.org/2000/svg';
+  for(let f=25;f<=75;f+=25){
+    const l=document.createElementNS(NS,'line');
+    l.setAttribute('x1',0);l.setAttribute('x2',600);l.setAttribute('y1',150*f/100);l.setAttribute('y2',150*f/100);
+    l.setAttribute('stroke','#e9eff8');l.setAttribute('stroke-width','1');
+    svg.appendChild(l);
+  }
+}
+function histLine(svg,pts,key,min,max,color){
+  if(!pts||pts.length<2)return;
+  const W=600,H=150,pad=5,n=pts.length,range=(max-min)||1,NS='http://www.w3.org/2000/svg';
+  const path=[];
+  for(let i=0;i<n;i++){
+    let v=pts[i][key]||0;if(v<min)v=min;if(v>max)v=max;
+    const x=pad+(i/(n-1))*(W-2*pad);
+    const y=H-pad-((v-min)/range)*(H-2*pad);
+    path.push(x.toFixed(1)+','+y.toFixed(1));
+  }
+  const p=document.createElementNS(NS,'polyline');
+  p.setAttribute('points',path.join(' '));
+  p.setAttribute('fill','none');p.setAttribute('stroke',color);p.setAttribute('stroke-width','1.5');
+  svg.appendChild(p);
+}
+function histLegendItem(color,text){return '<span><i style="background:'+color+'"></i>'+esc(text)+'</span>'}
+function drawCharts(pts){
+  ['hsvg-pct','hsvg-rate','hsvg-lat'].forEach(id=>{const s=document.getElementById(id);if(s)s.innerHTML=''});
+  const set=(id,html)=>{const e=document.getElementById(id);if(e)e.innerHTML=html};
+  if(!pts||pts.length<2){
+    const m='暂无历史数据';
+    set('hlegend-pct',m);set('hlegend-rate',m);set('hlegend-lat',m);
+    set('hvals-pct','');set('hvals-rate','');set('hvals-lat','');
+    return;
+  }
+  const last=pts[pts.length-1];
+  const sp=document.getElementById('hsvg-pct');
+  if(sp){histGrid(sp);histLine(sp,pts,'cpu',0,100,HCOL.cpu);histLine(sp,pts,'memory',0,100,HCOL.memory);histLine(sp,pts,'disk',0,100,HCOL.disk)}
+  set('hvals-pct','CPU '+(last.cpu||0).toFixed(1)+'% · 内存 '+(last.memory||0).toFixed(1)+'% · 磁盘 '+(last.disk||0).toFixed(1)+'%');
+  set('hlegend-pct',histLegendItem(HCOL.cpu,'CPU')+histLegendItem(HCOL.memory,'内存')+histLegendItem(HCOL.disk,'磁盘'));
+  const maxR=Math.max(...pts.map(p=>Math.max(p.rx||0,p.tx||0)),0)*1.1;
+  const sr=document.getElementById('hsvg-rate');
+  if(sr&&maxR>0){histGrid(sr);histLine(sr,pts,'rx',0,maxR,HCOL.rx);histLine(sr,pts,'tx',0,maxR,HCOL.tx)}
+  set('hvals-rate','↓ '+fmtBytes(last.rx||0)+'/s · ↑ '+fmtBytes(last.tx||0)+'/s');
+  set('hlegend-rate',histLegendItem(HCOL.rx,'下行')+histLegendItem(HCOL.tx,'上行'));
+  const maxL=Math.max(...pts.map(p=>p.latency||0),0)*1.1;
+  const sl=document.getElementById('hsvg-lat');
+  if(sl&&maxL>0){histGrid(sl);histLine(sl,pts,'latency',0,maxL,HCOL.latency)}
+  set('hvals-lat',(last.latency||0).toFixed(1)+' ms');
+  set('hlegend-lat',histLegendItem(HCOL.latency,'延迟'));
+}
+async function loadHistory(id){
+  try{
+    const res=await fetch('/api/v1/nodes/'+encodeURIComponent(id)+'/history',{cache:'no-store'});
+    histCache.data=await res.json();
+    histCache.at=Date.now();
+    drawCharts(histCache.data);
+  }catch(e){}
+}
 async function refresh(){
   try{
     const list=await (await fetch('/api/v1/nodes',{cache:'no-store'})).json();
     const memThr=parseFloat(document.body.dataset.memthr||'80'),diskThr=parseFloat(document.body.dataset.diskthr||'80');
     const n=(list||[]).find(x=>x.node_id===document.body.dataset.node);
     if(!n)return;
+    if(Date.now()-histCache.at>30000)loadHistory(n.node_id);
     const on=document.getElementById('d-on');
     if(on){on.textContent='● '+(n.online?'在线':'离线');on.style.color=n.online?'#29ba9b':'#d84e67'}
     const r=n.resources||{},h=n.hardware||{},nw=n.network||{};
