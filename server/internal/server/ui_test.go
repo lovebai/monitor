@@ -85,6 +85,27 @@ func TestFormatUptime(t *testing.T) {
 	}
 }
 
+func TestAgo(t *testing.T) {
+	now := time.Now()
+	cases := []struct {
+		d    time.Duration
+		want string
+	}{
+		{30 * time.Second, "30 秒前"},
+		{90 * time.Second, "1 分钟前"},
+		{59 * time.Minute, "59 分钟前"},
+		{61 * time.Minute, "1 小时前"},
+		{23*time.Hour + 30*time.Minute, "23 小时前"},
+		{25 * time.Hour, "1 天前"},
+		{3*24*time.Hour + 5*time.Hour, "3 天前"},
+	}
+	for _, c := range cases {
+		if got := ago(now.Add(-c.d)); got != c.want {
+			t.Errorf("ago(%v) = %q, want %q", c.d, got, c.want)
+		}
+	}
+}
+
 func TestSysTime(t *testing.T) {
 	if got := sysTime(time.Time{}); got != "-" {
 		t.Errorf("sysTime(zero) = %q, want %q", got, "-")

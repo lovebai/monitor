@@ -474,11 +474,17 @@ func loadPct(load float64, cores int) float64 {
 	return load * 100 / float64(cores)
 }
 func ago(t time.Time) string {
-	d := time.Since(t).Round(time.Second)
-	if d < time.Minute {
-		return d.String() + " 前"
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return fmt.Sprintf("%d 秒前", int(d.Seconds()))
+	case d < time.Hour:
+		return fmt.Sprintf("%d 分钟前", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%d 小时前", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%d 天前", int(d.Hours()/24))
 	}
-	return fmt.Sprintf("%.0f 分钟前", d.Minutes())
 }
 func checksByType(c []model.Check, typ string) []model.Check {
 	var out []model.Check

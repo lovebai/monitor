@@ -96,7 +96,7 @@ a{color:#3b719d;text-decoration:none}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function fmtBytes(v){v=+v||0;if(v<1024)return v+' B';const u=['KiB','MiB','GiB','TiB'];let i=-1;do{v/=1024;i++}while(v>=1024&&i<3);return v.toFixed(1)+' '+u[i]}
 function fmtDur(s){s=+s||0;const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);if(d>0)return d+'天'+h+'时';if(h>0)return h+'时'+m+'分';if(m>0)return m+'分';return Math.floor(s)+'秒'}
-function fmtAgo(t){if(!t)return '';const s=(Date.now()-new Date(t).getTime())/1000;return s<60?Math.max(0,Math.round(s))+' 秒前':Math.round(s/60)+' 分钟前'}
+function fmtAgo(t){if(!t)return '';const s=(Date.now()-new Date(t).getTime())/1000;if(s<60)return Math.max(0,Math.floor(s))+' 秒前';if(s<3600)return Math.floor(s/60)+' 分钟前';if(s<86400)return Math.floor(s/3600)+' 小时前';return Math.floor(s/86400)+' 天前'}
 function isUp(i){return i.flags&&i.flags.indexOf('up')>=0&&!!i.mac}
 function checksModuleHTML(title,list,emptyText){
   const head='<tr><th>名称</th><th>状态与详情</th></tr>';

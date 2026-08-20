@@ -76,7 +76,7 @@ header{height:55px;display:flex;align-items:center;justify-content:space-between
 <script>
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function fmtRate(b){b=+b||0;if(b<1024)return b.toFixed(1)+' B/s';if(b<1048576)return (b/1024).toFixed(1)+' KB/s';if(b<1073741824)return (b/1048576).toFixed(1)+' MB/s';return (b/1073741824).toFixed(1)+' GB/s'}
-function fmtAgo(t){if(!t)return '';const s=(Date.now()-new Date(t).getTime())/1000;return s<60?Math.max(0,Math.round(s))+' 秒前':Math.round(s/60)+' 分钟前'}
+function fmtAgo(t){if(!t)return '';const s=(Date.now()-new Date(t).getTime())/1000;if(s<60)return Math.max(0,Math.floor(s))+' 秒前';if(s<3600)return Math.floor(s/60)+' 分钟前';if(s<86400)return Math.floor(s/3600)+' 小时前';return Math.floor(s/86400)+' 天前'}
 function fmtSysTime(t){return t?String(t).replace('T',' ').slice(0,19):'-'}
 function loadPct(l,c){return c>0?l*100/c:0}
 var prevOnline={},ack={},lastAlarmAt=Date.now(),audioCtx=null,latest={};
