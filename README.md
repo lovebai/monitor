@@ -154,6 +154,48 @@ WantedBy=multi-user.target
 - 详情页：摘要卡片、内存、磁盘（全部分区）、网卡（仅已启用网卡的名称/MAC/IPv4）、服务与进程表格、进程资源 Top 5（CPU/内存占用）、历史曲线（CPU/内存/磁盘/网络速率/延迟）、告警，全部 5 秒局部刷新。
 - Server 与 Agent 启动时输出生效配置（Token 脱敏），便于核对参数。
 
+## 数据库表
+
+SQLite 数据库（`database_path`，默认 `monitor.db`）包含三张表：
+
+### nodes — 节点最新状态
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `node_id` | TEXT | 节点 ID，主键 |
+| `hostname` | TEXT | 主机名 |
+| `last_seen` | INTEGER | 最近一次上报时间（Unix 秒） |
+| `report_json` | TEXT | 最近一次完整上报 JSON（资源、网卡、检查、Top5 进程、别名、系统时间等） |
+
+Agent 每次上报对该表整行覆盖（UPSERT），只保留最新快照；离线判定基于 `last_seen` 与 `offline_after`。
+
+### metrics — 历史指标
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `node_id` | TEXT | 节点 ID |
+| `collected_at` | INTEGER | 采集时间（服务端收到上报的时刻，Unix 秒） |
+| `cpu` | REAL | CPU 使用率（%） |
+| `memory_percent` | REAL | 内存使用率（%） |
+| `disk_percent` | REAL | 磁盘使用率（%，仅第一块磁盘） |
+| `latency_ms` | REAL | TCP 探测延迟（ms） |
+| `rx_rate` / `tx_rate` | REAL | 已启用网卡汇总的收发速率（字节/秒） |
+
+每次上报追加一行，供详情页历史曲线与 `/api/v1/nodes/<id>/history` 使用；按 `history_retention_days`（默认 30 天）自动清理超期数据；`idx_metrics_node_time` 索引加速按节点 + 时间查询。
+
+### alerts — 告警事件
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | INTEGER | 自增主键 |
+| `node_id` | TEXT | 节点 ID |
+| `kind` | TEXT | 告警类型（`offline` 离线 / `latency` 网络延迟） |
+| `message` | TEXT | 告警内容 |
+| `active` | INTEGER | 是否未解决（1 = 活跃） |
+| `created_at` / `updated_at` / `resolved_at` | INTEGER | 创建 / 更新 / 解决时间（Unix 秒） |
+
+同一节点同一类型只保留一条活跃告警（`UNIQUE(node_id,kind)`）；节点恢复后标记为已解决并写入 `resolved_at`。
+
 ## 生产建议
 
 - 使用 HTTPS（反向代理或服务端 TLS），将 Token 放入安全的配置管理系统。
