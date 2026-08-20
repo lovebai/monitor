@@ -28,7 +28,7 @@ a{color:#3b719d;text-decoration:none}
 .danger{color:#e95169}
 .bar i.danger{background:#e95169}
 .warn{color:#d84e67;margin-top:8px}
-.checks{background:white;border:1px solid #d9e4f0;border-radius:13px;overflow:hidden}
+.checks{background:white;border:1px solid #d9e4f0;border-radius:13px;overflow:hidden;margin-bottom:1em}
 .checks table{width:100%;border-collapse:collapse}
 .checks th,.checks td{text-align:left;padding:10px 14px;border-bottom:1px solid #e9eff8;font-size:13px}
 .checks th{color:#647da0;background:#f6fafd;white-space:nowrap}
