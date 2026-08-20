@@ -60,3 +60,20 @@ func TestLoadFileConfigAuthMissingCredentials(t *testing.T) {
 		t.Fatal("auth_enabled without credentials should fail")
 	}
 }
+
+func TestLoadFileConfigAgentTokens(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "server.yaml")
+	if err := os.WriteFile(p, []byte("token: global\nagent_tokens:\n  web-01: abc123\n  web-02: def456\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := LoadFileConfig(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.AgentTokens["web-01"] != "abc123" || c.AgentTokens["web-02"] != "def456" || len(c.AgentTokens) != 2 {
+		t.Errorf("AgentTokens = %v", c.AgentTokens)
+	}
+	if got := c.Runtime().AgentTokens; got["web-01"] != "abc123" {
+		t.Errorf("Runtime AgentTokens = %v", got)
+	}
+}

@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"os"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -30,6 +32,7 @@ type Config struct {
 	AuthEnabled          bool
 	AuthUsername         string
 	AuthPassword         string
+	AgentTokens          map[string]string
 }
 type Handler struct {
 	cfg       Config
@@ -107,6 +110,10 @@ func New(cfg Config) (*Handler, error) {
 	if _, err = db.Exec(`PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS nodes(node_id TEXT PRIMARY KEY, hostname TEXT NOT NULL, last_seen INTEGER NOT NULL, report_json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS metrics(node_id TEXT NOT NULL, collected_at INTEGER NOT NULL, cpu REAL NOT NULL, memory_percent REAL NOT NULL, disk_percent REAL NOT NULL, latency_ms REAL NOT NULL, rx_rate REAL NOT NULL, tx_rate REAL NOT NULL); CREATE INDEX IF NOT EXISTS idx_metrics_node_time ON metrics(node_id,collected_at); CREATE TABLE IF NOT EXISTS alerts(id INTEGER PRIMARY KEY AUTOINCREMENT,node_id TEXT NOT NULL,kind TEXT NOT NULL,message TEXT NOT NULL,active INTEGER NOT NULL DEFAULT 1,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,resolved_at INTEGER,UNIQUE(node_id,kind)); CREATE INDEX IF NOT EXISTS idx_alerts_active ON alerts(active,updated_at);`); err != nil {
 		db.Close()
 		return nil, err
+	}
+	// 数据库含完整资产数据，落盘后收紧权限（Windows 上无实际强制作用，仅尽力而为）。
+	if runtime.GOOS != "windows" {
+		_ = os.Chmod(cfg.DatabasePath, 0600)
 	}
 	funcs := template.FuncMap{
 		"pct":        percent,
@@ -219,14 +226,14 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusFound)
 }
 func (h *Handler) ingest(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("Authorization") != "Bearer "+h.cfg.Token {
-		http.Error(w, "unauthorized", 401)
-		return
-	}
 	defer r.Body.Close()
 	var report model.Report
 	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 2<<20)).Decode(&report) != nil || report.NodeID == "" {
 		http.Error(w, "invalid report", 400)
+		return
+	}
+	if !h.validAgentToken(report.NodeID, strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")) {
+		http.Error(w, "unauthorized", 401)
 		return
 	}
 	// The server clock is authoritative for freshness and offline evaluation.
@@ -254,6 +261,17 @@ func (h *Handler) ingest(w http.ResponseWriter, r *http.Request) {
 	h.setAlert(report.NodeID, "latency", high, msg)
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// validAgentToken 校验 Agent 上报 Token：
+// 配置了该 node_id 的独立 Token 时必须与之匹配（Token↔node_id 绑定），
+// 未配置独立 Token 的节点回退到全局 Token；比较均为恒定时间，避免时序侧信道。
+func (h *Handler) validAgentToken(nodeID, token string) bool {
+	if t, ok := h.cfg.AgentTokens[nodeID]; ok && t != "" {
+		return subtle.ConstantTimeCompare([]byte(t), []byte(token)) == 1
+	}
+	return subtle.ConstantTimeCompare([]byte(h.cfg.Token), []byte(token)) == 1
+}
+
 func (h *Handler) setAlert(node, kind string, active bool, message string) {
 	now := time.Now().UTC().Unix()
 	if active {

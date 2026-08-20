@@ -22,6 +22,7 @@ type FileConfig struct {
 	AuthEnabled          bool
 	AuthUsername         string
 	AuthPassword         string
+	AgentTokens          map[string]string
 }
 
 func LoadFileConfig(path string) (FileConfig, error) {
@@ -30,9 +31,23 @@ func LoadFileConfig(path string) (FileConfig, error) {
 		return FileConfig{}, fmt.Errorf("read server config: %w", err)
 	}
 	c := FileConfig{Listen: ":8080", DatabasePath: "monitor.db", OfflineAfterText: "90s", LatencyThresholdMS: 500, MemoryThresholdPct: 80, DiskThresholdPct: 80, HistoryRetentionDays: 30}
-	for _, line := range strings.Split(string(b), "\n") {
-		line = strings.TrimSpace(line)
+	inTokens := false
+	for _, raw := range strings.Split(string(b), "\n") {
+		line := strings.TrimSpace(raw)
 		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if inTokens && strings.HasPrefix(raw, " ") {
+			p := strings.SplitN(line, ":", 2)
+			if len(p) == 2 {
+				k, v := strings.TrimSpace(p[0]), strings.Trim(strings.TrimSpace(p[1]), "\"'")
+				if k != "" && v != "" {
+					if c.AgentTokens == nil {
+						c.AgentTokens = map[string]string{}
+					}
+					c.AgentTokens[k] = v
+				}
+			}
 			continue
 		}
 		parts := strings.SplitN(line, ":", 2)
@@ -40,7 +55,10 @@ func LoadFileConfig(path string) (FileConfig, error) {
 			continue
 		}
 		key, value := strings.TrimSpace(parts[0]), strings.Trim(strings.TrimSpace(parts[1]), "\"'")
+		inTokens = false
 		switch key {
+		case "agent_tokens":
+			inTokens = true
 		case "listen":
 			c.Listen = value
 		case "token":
@@ -82,5 +100,5 @@ func LoadFileConfig(path string) (FileConfig, error) {
 }
 func (c FileConfig) Runtime() Config {
 	d, _ := time.ParseDuration(c.OfflineAfterText)
-	return Config{Token: c.Token, DatabasePath: c.DatabasePath, OfflineAfter: d, LatencyThresholdMS: c.LatencyThresholdMS, MemoryThresholdPct: c.MemoryThresholdPct, DiskThresholdPct: c.DiskThresholdPct, HistoryRetentionDays: c.HistoryRetentionDays, AuthEnabled: c.AuthEnabled, AuthUsername: c.AuthUsername, AuthPassword: c.AuthPassword}
+	return Config{Token: c.Token, DatabasePath: c.DatabasePath, OfflineAfter: d, LatencyThresholdMS: c.LatencyThresholdMS, MemoryThresholdPct: c.MemoryThresholdPct, DiskThresholdPct: c.DiskThresholdPct, HistoryRetentionDays: c.HistoryRetentionDays, AuthEnabled: c.AuthEnabled, AuthUsername: c.AuthUsername, AuthPassword: c.AuthPassword, AgentTokens: c.AgentTokens}
 }

@@ -89,5 +89,8 @@ func printServerConfig(path string, c server.FileConfig) {
 	} else {
 		log.Printf("网页鉴权: 关闭")
 	}
+	if len(c.AgentTokens) > 0 {
+		log.Printf("Agent 独立 Token: %d 个节点（node_id 绑定）", len(c.AgentTokens))
+	}
 	log.Printf("鉴权 Token: ********")
 }

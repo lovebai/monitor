@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -43,6 +44,10 @@ func LoadConfig(path string) (Config, error) {
 	c.Interval, err = time.ParseDuration(c.IntervalText)
 	if err != nil || c.Interval < time.Second {
 		return c, fmt.Errorf("invalid interval")
+	}
+	// 配置文件含 Token，收紧权限（Windows 上无实际强制作用，仅尽力而为）。
+	if runtime.GOOS != "windows" {
+		_ = os.Chmod(path, 0600)
 	}
 	return c, nil
 }

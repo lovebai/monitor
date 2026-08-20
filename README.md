@@ -15,7 +15,7 @@
 - 告警：超出 `offline_after` 未上报即离线；网络不可达或 TCP 延迟超过 `latency_threshold_ms` 触发网络告警。
 - 节点删除：`server.exe -remove <node_id>`，输入 6 位随机验证码确认后删除数据库中的节点及其历史指标与告警。
 - 读接口鉴权：`auth_enabled: true` 时，主页/详情页/JSON 读接口需登录（会话 Cookie，默认关闭）；Agent 上报仍使用 Bearer Token，不受影响。
-- 安全与存储：Bearer Token 上报鉴权、可选登录鉴权、2 MiB 请求限制、SQLite 持久化、Web 仪表盘与 JSON API。
+- 安全与存储：Bearer Token 上报鉴权（支持每节点独立 Token + node_id 绑定）、可选登录鉴权、2 MiB 请求限制、SQLite 持久化（含 Token 的配置与数据库自动收紧权限 0600）、Web 仪表盘与 JSON API。
 - 启动提示：Server/Agent 启动时在终端输出版本号（按构建日期命名）与生效配置（Token 脱敏显示）。
 
 平台支持：
@@ -78,7 +78,12 @@ history_retention_days: 30    # metrics 历史数据保留天数，超期数据�
 auth_enabled: false           # 是否开启网页/JSON 读接口登录鉴权（默认关闭）
 auth_username: admin          # 开启鉴权时的登录用户名
 auth_password: 123456         # 开启鉴权时的登录密码
+agent_tokens:                 # 每节点独立 Token（node_id 绑定），未列出的节点使用全局 token
+  web-01: changeme-0001
+  web-02: changeme-0002
 ```
+
+`agent_tokens` 语义：配置了独立 Token 的节点只能用该 Token 上报（Token 与 node_id 绑定，防止一个 Token 泄露后冒充任意节点）；未配置的节点回退到全局 `token`。比较使用恒定时间算法，避免时序侧信道。轮换方式：同步修改 `server.yaml` 与对应 `agent.yaml` 后重启 Server 与 Agent；Linux 上 Server 启动时会自动将数据库与 Agent 配置文件的权限收紧为 0600。
 
 ### 配置 Agent
 

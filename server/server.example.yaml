@@ -13,3 +13,8 @@ history_retention_days: 30
 auth_enabled: false
 auth_username: admin
 auth_password: 123456
+# Agent 独立 Token（node_id 绑定）：配置后该节点必须使用对应 Token 上报，
+# 未列出的节点仍使用上方全局 token；轮换时同步修改 server.yaml 与对应 agent.yaml 并重启
+agent_tokens:
+  web-01: changeme-0001
+  web-02: changeme-0002
