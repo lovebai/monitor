@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"os"
 	"runtime"
@@ -19,6 +20,7 @@ import (
 	"monitor-server/internal/model"
 
 	_ "modernc.org/sqlite"
+	_ "net/http/pprof"
 )
 
 type Config struct {
@@ -32,6 +34,7 @@ type Config struct {
 	AuthUsername         string
 	AuthPassword         string
 	AgentTokens          map[string]string
+	Debug                bool
 }
 type Handler struct {
 	cfg       Config
@@ -135,8 +138,16 @@ func New(cfg Config) (*Handler, error) {
 }
 func (h *Handler) Close() error { return h.db.Close() }
 
+// logf 仅在调试模式下输出日志。
+func (h *Handler) logf(format string, args ...any) {
+	if h.cfg.Debug {
+		log.Printf(format, args...)
+	}
+}
+
 // 还是用gin舒服,不想改了
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.logf("HTTP %s %s 来源=%s", r.Method, r.URL.Path, r.RemoteAddr)
 	if h.cfg.AuthEnabled && r.URL.Path != "/api/v1/reports" && r.URL.Path != "/login" && r.URL.Path != "/logout" && !h.isAuthed(r) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			w.Header().Set("Content-Type", "application/json")
@@ -157,8 +168,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.logout(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/api/v1/nodes":
 		h.json(w, r)
+	case r.Method == http.MethodGet && r.URL.Path == "/api/v1/nodes-html":
+		h.nodesHTML(w, r)
 	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/nodes/") && strings.HasSuffix(r.URL.Path, "/history"):
 		h.history(w, r)
+	case h.cfg.Debug && strings.HasPrefix(r.URL.Path, "/debug/pprof"):
+		http.DefaultServeMux.ServeHTTP(w, r)
 	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/nodes/"):
 		h.nodeDetail(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/":
@@ -207,12 +222,21 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	u := r.FormValue("username")
 	p := r.FormValue("password")
-	if subtle.ConstantTimeCompare([]byte(u), []byte(h.cfg.AuthUsername)) == 1 &&
-		subtle.ConstantTimeCompare([]byte(p), []byte(h.cfg.AuthPassword)) == 1 {
+	ok := subtle.ConstantTimeCompare([]byte(u), []byte(h.cfg.AuthUsername)) == 1
+	if ok {
+		if IsPasswordHash(h.cfg.AuthPassword) {
+			ok = VerifyPasswordHash(p, h.cfg.AuthPassword)
+		} else {
+			// 兼容历史明文配置；新配置请使用 server -gen 生成加密哈希。
+			ok = subtle.ConstantTimeCompare([]byte(p), []byte(h.cfg.AuthPassword)) == 1
+		}
+	}
+	if ok {
 		http.SetCookie(w, &http.Cookie{Name: "session", Value: h.newSession(), Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 7 * 86400})
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
+	h.logf("登录失败: 用户名=%s", u)
 	http.Redirect(w, r, "/login?err=1", http.StatusFound)
 }
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
@@ -232,6 +256,7 @@ func (h *Handler) ingest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !h.validAgentToken(report.NodeID, strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")) {
+		h.logf("拒绝上报: node=%s Token 无效", report.NodeID)
 		http.Error(w, "unauthorized", 401)
 		return
 	}
@@ -249,6 +274,10 @@ func (h *Handler) ingest(w http.ResponseWriter, r *http.Request) {
 		disk = report.Resources.Disks[0].UsedPercent
 	}
 	rx, tx := netRates(report.Interfaces)
+	h.logf("收到上报: node=%s hostname=%s group=%s cpu=%.1f%% 内存=%.1f%% 磁盘=%.1f%% 延迟=%.1fms 负载=%.2f/%.2f/%.2f",
+		report.NodeID, report.Hostname, report.Group, report.Resources.CPUPercent,
+		percent(report.Resources.MemoryUsedBytes, report.Resources.MemoryTotalBytes), disk,
+		report.Network.LatencyMS, report.Resources.Load1, report.Resources.Load5, report.Resources.Load15)
 	_, _ = h.db.Exec(`INSERT INTO metrics(node_id,collected_at,cpu,memory_percent,disk_percent,latency_ms,rx_rate,tx_rate) VALUES(?,?,?,?,?,?,?,?)`, report.NodeID, report.Timestamp.Unix(), report.Resources.CPUPercent, percent(report.Resources.MemoryUsedBytes, report.Resources.MemoryTotalBytes), disk, report.Network.LatencyMS, rx, tx)
 	h.pruneMetrics(time.Now())
 	h.setAlert(report.NodeID, "offline", false, "节点恢复在线")
@@ -288,6 +317,7 @@ func (h *Handler) views() []nodeView {
 	now := time.Now().UTC()
 	rows, e := h.db.Query(`SELECT node_id,last_seen,report_json FROM nodes ORDER BY hostname`)
 	if e != nil {
+		h.logf("查询节点失败: %v", e)
 		return nil
 	}
 	defer rows.Close()
@@ -361,28 +391,44 @@ func (h *Handler) json(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(h.views())
 }
+
+type homeData struct {
+	Groups        []groupView
+	Nodes         []nodeView
+	AlertCount    int
+	Threshold     float64
+	RxRate        float64
+	TxRate        float64
+	MemThreshold  float64
+	DiskThreshold float64
+}
+
+func (h *Handler) homeData() homeData {
+	v := h.views()
+	d := homeData{groupNodes(v), v, 0, h.cfg.LatencyThresholdMS, 0, 0, h.cfg.MemoryThresholdPct, h.cfg.DiskThresholdPct}
+	for _, n := range v {
+		d.AlertCount += len(n.Alerts)
+		d.RxRate += n.NetRxBps
+		d.TxRate += n.NetTxBps
+	}
+	return d
+}
+
 func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
 	// No-cache headers keep the 5s auto-refresh from serving a stale copy.
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	v := h.views()
-	data := struct {
-		Groups        []groupView
-		Nodes         []nodeView
-		AlertCount    int
-		Threshold     float64
-		RxRate        float64
-		TxRate        float64
-		MemThreshold  float64
-		DiskThreshold float64
-	}{groupNodes(v), v, 0, h.cfg.LatencyThresholdMS, 0, 0, h.cfg.MemoryThresholdPct, h.cfg.DiskThresholdPct}
-	for _, n := range v {
-		data.AlertCount += len(n.Alerts)
-		data.RxRate += n.NetRxBps
-		data.TxRate += n.NetTxBps
-	}
-	_ = h.dashboard.Execute(w, data)
+	_ = h.dashboard.Execute(w, h.homeData())
+}
+
+// nodesHTML 返回主页节点区的 HTML 片段，前端 5 秒刷新时整体替换，
+// 保证新增节点/分组与「尚未收到 Agent 上报」空态能够自动更新。
+func (h *Handler) nodesHTML(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = h.dashboard.ExecuteTemplate(w, "nodes", h.homeData())
 }
 func (h *Handler) nodeDetail(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/nodes/")

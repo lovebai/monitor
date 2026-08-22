@@ -23,12 +23,20 @@ func main() {
 	log.Printf("Server Monitor 版本: %s", Version)
 	configPath := flag.String("config", "server.yaml", "server YAML configuration file")
 	remove := flag.String("remove", "", "删除指定 node_id 的节点（需输入 6 位验证码确认）")
+	gen := flag.String("gen", "", "生成登录密码的加密哈希并写入配置文件 auth_password")
+	debug := flag.Bool("debug", false, "启用调试模式（输出详细请求与 Agent 上报日志，并开放 /debug/pprof）")
 	flag.Parse()
+	if *gen != "" {
+		generatePassword(*gen, *configPath)
+		return
+	}
 	cfg, err := server.LoadFileConfig(*configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	h, err := server.New(cfg.Runtime())
+	rt := cfg.Runtime()
+	rt.Debug = *debug
+	h, err := server.New(rt)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -37,7 +45,7 @@ func main() {
 		removeNode(h, *remove)
 		return
 	}
-	printServerConfig(*configPath, cfg)
+	printServerConfig(*configPath, cfg, *debug)
 	httpServer := &http.Server{Addr: cfg.Listen, Handler: h, ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		log.Printf("monitor server listening on %s", cfg.Listen)
@@ -51,6 +59,20 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = httpServer.Shutdown(ctx)
+}
+
+// generatePassword 生成登录密码的加密哈希，打印到终端并自动写入配置文件的 auth_password。
+func generatePassword(password, configPath string) {
+	hash, err := server.GeneratePasswordHash(password)
+	if err != nil {
+		log.Fatalf("生成加密密码失败: %v", err)
+	}
+	fmt.Printf("生成的加密密码：%s\n", hash)
+	if err := server.UpdateConfigPassword(configPath, hash); err != nil {
+		log.Printf("提示：未能自动写入配置文件 %s（%v），请手动将上面的哈希填入 auth_password", configPath, err)
+		return
+	}
+	log.Printf("已写入配置文件 %s 的 auth_password，请妥善保管原密码", configPath)
 }
 
 // removeNode 打印 6 位随机验证码，用户输入一致后才删除数据库中的节点。
@@ -74,7 +96,7 @@ func removeNode(h *server.Handler, id string) {
 	log.Printf("已删除节点 %s，页面将不再显示", id)
 }
 
-func printServerConfig(path string, c server.FileConfig) {
+func printServerConfig(path string, c server.FileConfig, debug bool) {
 	log.Printf("==== Server Monitor 启动 ====")
 	log.Printf("配置文件: %s", path)
 	log.Printf("监听地址: %s", c.Listen)
@@ -90,4 +112,9 @@ func printServerConfig(path string, c server.FileConfig) {
 		log.Printf("网页鉴权: 关闭")
 	}
 	log.Printf("Agent 独立 Token: %d 个节点（node_id 绑定）", len(c.AgentTokens))
+	if debug {
+		log.Printf("调试模式: 开启（输出请求/上报日志，/debug/pprof 可用）")
+	} else {
+		log.Printf("调试模式: 关闭")
+	}
 }

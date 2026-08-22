@@ -2,6 +2,8 @@ package server
 
 import (
 	"html/template"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -113,6 +115,80 @@ func TestSysTime(t *testing.T) {
 	cst := time.FixedZone("CST", 8*3600)
 	if got := sysTime(time.Date(2026, 8, 19, 9, 30, 0, 0, cst)); got != "2026-08-19 09:30:00" {
 		t.Errorf("sysTime = %q, want %q", got, "2026-08-19 09:30:00")
+	}
+}
+
+func TestNodesFragmentRender(t *testing.T) {
+	funcs := template.FuncMap{
+		"pct": percent, "ago": ago, "bytes": humanBytes,
+		"rate": rate, "isUp": isUp, "ipv4s": ipv4s, "loadPct": loadPct,
+		"dur": formatUptime, "sysTime": sysTime,
+	}
+	tmpl := template.Must(template.New("page").Funcs(funcs).Parse(page))
+	on := nodeView{Report: model.Report{NodeID: "n1", Hostname: "h1", Timestamp: time.Now(), OS: model.OSInfo{Name: "linux"}, Hardware: model.Hardware{LogicalCPUs: 4}}, Online: true}
+	data := struct {
+		Groups        []groupView
+		Nodes         []nodeView
+		AlertCount    int
+		Threshold     float64
+		RxRate        float64
+		TxRate        float64
+		MemThreshold  float64
+		DiskThreshold float64
+	}{groupNodes([]nodeView{on}), []nodeView{on}, 0, 500, 0, 0, 80, 80}
+
+	var b strings.Builder
+	if err := tmpl.ExecuteTemplate(&b, "nodes", data); err != nil {
+		t.Fatalf("render fragment failed: %v", err)
+	}
+	html := b.String()
+	if !strings.Contains(html, `href="/nodes/n1"`) || !strings.Contains(html, "data-id=\"n1\"") {
+		t.Error("fragment should include online node card")
+	}
+	if !strings.Contains(html, "<span class=\"gcount\">1 台</span>") {
+		t.Error("fragment should include group count")
+	}
+
+	empty := struct {
+		Groups        []groupView
+		Nodes         []nodeView
+		AlertCount    int
+		Threshold     float64
+		RxRate        float64
+		TxRate        float64
+		MemThreshold  float64
+		DiskThreshold float64
+	}{nil, nil, 0, 500, 0, 0, 80, 80}
+	b.Reset()
+	if err := tmpl.ExecuteTemplate(&b, "nodes", empty); err != nil {
+		t.Fatalf("render empty fragment failed: %v", err)
+	}
+	if !strings.Contains(b.String(), "尚未收到 Agent 上报") {
+		t.Error("empty fragment should show empty-state message")
+	}
+}
+
+func TestNodesHTMLFragmentEndpoint(t *testing.T) {
+	h := newTestHandlerAuth(t, false)
+	body := `{"node_id":"n1","hostname":"h1","group":"web","os":{"name":"linux","architecture":"amd64"},"hardware":{"logical_cpus":4},"resources":{},"interfaces":[],"network":{}}`
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/reports", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer t")
+	h.ServeHTTP(rr, req)
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("ingest = %d, want 204", rr.Code)
+	}
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/v1/nodes-html", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("nodes-html = %d, want 200", rr.Code)
+	}
+	html := rr.Body.String()
+	if !strings.Contains(html, `data-id="n1"`) || !strings.Contains(html, `href="/nodes/n1"`) {
+		t.Error("nodes-html should include the reported node card")
+	}
+	if !strings.Contains(html, `data-grp="web"`) {
+		t.Error("nodes-html should include the node group title")
 	}
 }
 

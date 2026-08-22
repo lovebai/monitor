@@ -3,6 +3,7 @@ package server
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -85,5 +86,53 @@ func TestLoadFileConfigRequiresAgentTokens(t *testing.T) {
 	}
 	if _, err := LoadFileConfig(p); err == nil {
 		t.Fatal("server config without agent_tokens should fail")
+	}
+}
+
+func TestUpdateConfigPassword(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "server.yaml")
+	content := "listen: :8080\nauth_username: admin\nauth_password: 123456\nagent_tokens:\n  n1: t\n"
+	if err := os.WriteFile(p, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hash, err := GeneratePasswordHash("newpass")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := UpdateConfigPassword(p, hash); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(p)
+	s := string(b)
+	if !strings.Contains(s, "auth_password: \""+hash+"\"") {
+		t.Errorf("auth_password not replaced with hash: %s", s)
+	}
+	if !strings.Contains(s, "auth_username: admin") || !strings.Contains(s, "n1: t") {
+		t.Errorf("unrelated config lines must be preserved: %s", s)
+	}
+	c, err := LoadFileConfig(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.AuthPassword != hash {
+		t.Errorf("loaded AuthPassword = %q, want %q", c.AuthPassword, hash)
+	}
+}
+
+func TestUpdateConfigPasswordAppendsWhenMissing(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "server.yaml")
+	if err := os.WriteFile(p, []byte("agent_tokens:\n  n1: t\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hash, _ := GeneratePasswordHash("newpass")
+	if err := UpdateConfigPassword(p, hash); err != nil {
+		t.Fatal(err)
+	}
+	c, err := LoadFileConfig(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.AuthPassword != hash {
+		t.Errorf("appended AuthPassword = %q, want %q", c.AuthPassword, hash)
 	}
 }

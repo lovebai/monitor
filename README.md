@@ -6,7 +6,7 @@
 
 - 采集：主机、OS、系统时间、备注别名（alias）、CPU 型号/核心数、内存、磁盘、负载、网卡（MAC/MTU/状态/IP/流量速率）、TCP 探测延迟、进程与服务健康检查、CPU/内存占用 Top 5 进程。
 - 分组：Agent 配置 `group` 指定所属分组，控制台按分组展示；未配置归入 `DEFAULT`。
-- 主页（5 秒局部刷新，不整页刷新）：
+- 主页（5 秒局部刷新，不整页刷新；新增节点/分组与「尚未收到 Agent 上报」空态也会自动更新）：
   - 实时更新节点状态、CPU/内存/磁盘、负载（按核数归一化百分比 + 原始值）、网络速率（已启用网卡汇总）、探测延迟、Agent 系统时间与告警；
   - 节点离线：卡片标红、状态点变红并显示「已离线」，不可点击进入详情页；
   - 内存/磁盘使用率超过 `memory_threshold_percent` / `disk_threshold_percent`（默认 80%）时，数值与进度条变红；
@@ -15,7 +15,8 @@
 - 告警：超出 `offline_after` 未上报即离线；网络不可达或 TCP 延迟超过 `latency_threshold_ms` 触发网络告警。
 - 节点删除：`server.exe -remove <node_id>`，输入 6 位随机验证码确认后删除数据库中的节点及其历史指标与告警。
 - 读接口鉴权：`auth_enabled: true` 时，主页/详情页/JSON 读接口需登录（会话 Cookie，默认关闭）；Agent 上报仍使用 Bearer Token，不受影响。
-- 安全与存储：Bearer Token 上报鉴权（全部使用每节点独立 Token，node_id 绑定）、可选登录鉴权、2 MiB 请求限制、SQLite 持久化（含 Token 的配置与数据库自动收紧权限 0600）、Web 仪表盘与 JSON API。
+- 安全与存储：Bearer Token 上报鉴权（全部使用每节点独立 Token，node_id 绑定）、可选登录鉴权（密码以 PBKDF2 加密哈希保存，`server.exe -gen "密码"` 生成并自动写入配置）、2 MiB 请求限制、SQLite 持久化（含 Token 的配置与数据库自动收紧权限 0600）、Web 仪表盘与 JSON API。
+- 调试模式：`server.exe -debug` 启动时输出每个 HTTP 请求与 Agent 上报详情，并开放 `/debug/pprof` 性能分析。
 - 启动提示：Server/Agent 启动时在终端输出版本号（按构建日期命名）与生效配置（Token 脱敏显示）。
 
 平台支持：
@@ -88,13 +89,23 @@ disk_threshold_percent: 80   # 磁盘使用率变红阈值（%）
 history_retention_days: 30    # metrics 历史数据保留天数，超期数据在每次 Agent 上报时自动清理
 auth_enabled: false           # 是否开启网页/JSON 读接口登录鉴权（默认关闭）
 auth_username: admin          # 开启鉴权时的登录用户名
-auth_password: 123456         # 开启鉴权时的登录密码
+auth_password: 123456         # 开启鉴权时的登录密码（建议改用下方加密哈希）
 agent_tokens:                 # 每节点独立 Token（node_id 绑定，必填）
   web-01: changeme-0001
   web-02: changeme-0002
 ```
 
 `agent_tokens` 语义：所有 Agent 必须在此登记独立 Token（Token 与 node_id 绑定，防止一个 Token 泄露后冒充任意节点）；未登记的 node_id 上报一律返回 401。比较使用恒定时间算法，避免时序侧信道。轮换方式：同步修改 `server.yaml` 与对应 `agent.yaml` 后重启 Server 与 Agent；Linux 上 Server 启动时会自动将数据库与 Agent 配置文件的权限收紧为 0600。
+
+### 加密登录密码
+
+`auth_password` 支持 PBKDF2-HMAC-SHA256 加密哈希（带随机盐，格式 `pbkdf2$sha256$迭代次数$盐$哈希`），避免明文密码出现在配置文件中：
+
+```powershell
+server.exe -gen "你的密码" -config server.yaml
+```
+
+程序会打印生成的哈希并自动替换配置文件中 `auth_password` 行；旧配置中的明文密码仍可登录（兼容迁移），但新配置建议一律使用 `-gen` 生成。生成命令仅执行哈希计算与配置写入，不会启动监控服务。
 
 ### 配置 Agent
 
@@ -118,7 +129,7 @@ services:
 
 ### 运行
 
-1. 启动 Server：`server.exe -config server.yaml`（Linux 使用 `server-linux-amd64`）。
+1. 启动 Server：`server.exe -config server.yaml`；排查问题时加 `-debug` 可输出请求/上报详情并开放 `/debug/pprof`（Linux 使用 `server-linux-amd64`）。
 2. 在被监控设备启动 Agent：`agent.exe -config agent.yaml`；使用 `-once` 可只采集上报一次，`Ctrl+C` 停止。
 3. 打开 `http://server:8080/` 查看仪表盘；`GET /api/v1/nodes` 获取 JSON。
 

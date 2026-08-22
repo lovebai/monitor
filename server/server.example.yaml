@@ -11,7 +11,8 @@ history_retention_days: 30
 # 是否开启网页/JSON 接口登录鉴权；true 时查看页面和读取接口需要登录（Agent 上报仍走 token）
 auth_enabled: true
 auth_username: admin
-auth_password: 123456
+# 登录密码为加密哈希；执行 server.exe -gen "你的密码" 生成并自动写入本行（明文密码仍兼容但不再推荐）
+auth_password: "pbkdf2$sha256$210000$3lGYDF3hXaANJ5ZIdM2QtA$Ol1pbYfXuQW17hdweKpKauJMTfjbQ5lN2mcBr1whRDM"
 # Agent 独立 Token（node_id 绑定，必填）：所有 Agent 必须在此登记，
 # 未登记的 node_id 上报将被拒绝；轮换时同步修改 server.yaml 与对应 agent.yaml 并重启
 agent_tokens:

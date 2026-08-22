@@ -110,3 +110,63 @@ func TestAuthDoesNotBlockIngest(t *testing.T) {
 		t.Errorf("ingest with auth enabled = %d, want 204", rr.Code)
 	}
 }
+
+func TestPasswordHashRoundTrip(t *testing.T) {
+	h, err := GeneratePasswordHash("S3cret!")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !IsPasswordHash(h) {
+		t.Errorf("generated hash should be recognized: %q", h)
+	}
+	if !VerifyPasswordHash("S3cret!", h) {
+		t.Error("correct password should verify against hash")
+	}
+	if VerifyPasswordHash("wrong", h) {
+		t.Error("wrong password must not verify against hash")
+	}
+	if VerifyPasswordHash("S3cret!", "plaintext") {
+		t.Error("plaintext value must not verify as hash")
+	}
+	if _, err := GeneratePasswordHash(""); err == nil {
+		t.Error("empty password should fail")
+	}
+}
+
+func TestLoginWithHashedPassword(t *testing.T) {
+	hash, err := GeneratePasswordHash("secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := Config{AgentTokens: map[string]string{"n1": "t"}, DatabasePath: filepath.Join(t.TempDir(), "monitor-test.db"), OfflineAfter: time.Minute, AuthEnabled: true, AuthUsername: "admin", AuthPassword: hash}
+	h, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { h.Close() })
+
+	post := func(pwd string) *httptest.ResponseRecorder {
+		form := url.Values{"username": {"admin"}, "password": {pwd}}
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		h.ServeHTTP(rr, req)
+		return rr
+	}
+	if rr := post("wrong"); rr.Code != http.StatusFound || rr.Header().Get("Location") != "/login?err=1" {
+		t.Errorf("bad login = %d loc=%q, want 302 /login?err=1", rr.Code, rr.Header().Get("Location"))
+	}
+	rr := post("secret")
+	if rr.Code != http.StatusFound || rr.Header().Get("Location") == "/login?err=1" {
+		t.Fatalf("hashed login = %d loc=%q, want 302 to dashboard", rr.Code, rr.Header().Get("Location"))
+	}
+	var sess *http.Cookie
+	for _, c := range rr.Result().Cookies() {
+		if c.Name == "session" {
+			sess = c
+		}
+	}
+	if sess == nil || sess.Value == "" {
+		t.Fatal("login should set session cookie")
+	}
+}
