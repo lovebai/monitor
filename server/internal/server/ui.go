@@ -72,6 +72,35 @@ header{height:55px;display:flex;align-items:center;justify-content:space-between
 </section>
 <div id="nodes-area">{{template "nodes" .}}</div>
 </main>
+{{define "nodes"}}
+{{range .Groups}}<div class="title" data-grp="{{.Name}}">{{.Name}} <span class="gcount">{{len .Nodes}} 台</span></div>
+<section class="nodes">
+{{range .Nodes}}<a class="node {{if not .Online}}off{{end}}" data-id="{{.NodeID}}" {{if .Online}}href="/nodes/{{.NodeID}}"{{else}}title="节点已离线，无法查看详情"{{end}}>
+<div class="head"><div><i class="state {{if .Online}}on{{end}}" data-role="dot"></i> <span class="name">{{.NodeID}}</span><span class="nodeid">{{.Hostname}}</span><span class="offtag" data-role="offtag" style="display:{{if .Online}}none{{else}}inline-block{{end}}">已离线</span></div><span class="sub" data-role="ago">{{ago .Timestamp}}</span></div>
+<div class="chips"><span>{{.OS.Name}}</span><span>{{.OS.Architecture}}</span><span>{{.Hardware.LogicalCPUs}} CPU</span>{{if .Alias}}<span class="alias">{{.Alias}}</span>{{end}}</div>
+<div class="line"><label>CPU <b data-role="cpu">{{printf "%.1f" .Resources.CPUPercent}}%</b></label><div class="bar"><i data-role="cpubar" style="width:{{printf "%.0f" .Resources.CPUPercent}}%"></i></div></div>
+<div class="line"><label>内存 <b data-role="mem" class="{{if ge (pct .Resources.MemoryUsedBytes .Resources.MemoryTotalBytes) $.MemThreshold}}danger{{end}}">{{printf "%.1f" (pct .Resources.MemoryUsedBytes .Resources.MemoryTotalBytes)}}%</b></label><div class="bar"><i data-role="membar" class="{{if ge (pct .Resources.MemoryUsedBytes .Resources.MemoryTotalBytes) $.MemThreshold}}danger{{end}}" style="width:{{printf "%.0f" (pct .Resources.MemoryUsedBytes .Resources.MemoryTotalBytes)}}%"></i></div></div>
+{{if .Resources.Disks}}{{with index .Resources.Disks 0}}<div class="line"><label>磁盘 <b data-role="disk" class="{{if ge .UsedPercent $.DiskThreshold}}danger{{end}}">{{printf "%.1f" .UsedPercent}}%</b></label><div class="bar"><i data-role="diskbar" class="{{if ge .UsedPercent $.DiskThreshold}}danger{{end}}" style="width:{{printf "%.0f" .UsedPercent}}%"></i></div></div>{{end}}{{end}}
+<div class="net" data-role="net">负载　{{printf "%.0f" (loadPct .Resources.Load1 .Hardware.LogicalCPUs)}}%（{{printf "%.2f" .Resources.Load1}} / {{printf "%.2f" .Resources.Load5}} / {{printf "%.2f" .Resources.Load15}}）<br>网络　↓ {{rate .NetRxBps}}　↑ {{rate .NetTxBps}}<br>探测　{{if .Network.Reachable}}{{printf "%.0f ms" .Network.LatencyMS}}{{else}}不可达{{end}}</div>
+<div class="net up" data-role="sys-time">系统时间:　{{sysTime .SystemTime}}</div>
+<div data-role="alerts">{{range .Alerts}}<div class="warn">● {{.Message}}</div>{{end}}</div>
+</a>{{end}}
+</section>
+{{else}}<div class="card stat">尚未收到 Agent 上报。</div>{{end}}
+<footer class="server-info">
+<div class="card">
+<div class="si-head">Server 主机状态</div>
+<div class="si-grid">
+<div class="si-item"><label>系统</label><b>{{.Server.OSName}}</b><span class="sub">{{.Server.Hostname}} · {{.Server.Arch}}</span></div>
+<div class="si-item"><label>负载</label><b>{{printf "%.2f" .Server.Load1}} / {{printf "%.2f" .Server.Load5}} / {{printf "%.2f" .Server.Load15}}</b><span class="sub">1 / 5 / 15 分钟</span></div>
+<div class="si-item"><label>CPU</label><b>{{printf "%.1f" .Server.CPUPercent}}%</b><span class="sub">Server 主机</span></div>
+<div class="si-item"><label>内存</label><b>{{printf "%.1f" (pct .Server.MemUsedBytes .Server.MemTotalBytes)}}%</b><span class="sub">{{bytes .Server.MemUsedBytes}} / {{bytes .Server.MemTotalBytes}}</span></div>
+<div class="si-item"><label>磁盘</label><b>{{printf "%.1f" .Server.DiskUsedPct}}%</b><span class="sub">{{bytes .Server.DiskUsedBytes}} / {{bytes .Server.DiskTotalBytes}}</span></div>
+<div class="si-item"><label>数据库文件</label><b>{{bytes .Server.DBFileSize}}</b><span class="sub">{{.Server.DBPath}}</span></div>
+</div>
+</div>
+</footer>
+{{end}}
 <script>
 function fmtRate(b){b=+b||0;if(b<1024)return b.toFixed(1)+' B/s';if(b<1048576)return (b/1024).toFixed(1)+' KB/s';if(b<1073741824)return (b/1048576).toFixed(1)+' MB/s';return (b/1073741824).toFixed(1)+' GB/s'}
 var prevOnline={},ack={},lastAlarmAt=Date.now(),audioCtx=null,latest={};
@@ -137,33 +166,4 @@ async function refresh(){
 refresh();setInterval(refresh,5000);
 </script>
 </body>
-</html>
-{{define "nodes"}}
-{{range .Groups}}<div class="title" data-grp="{{.Name}}">{{.Name}} <span class="gcount">{{len .Nodes}} 台</span></div>
-<section class="nodes">
-{{range .Nodes}}<a class="node {{if not .Online}}off{{end}}" data-id="{{.NodeID}}" {{if .Online}}href="/nodes/{{.NodeID}}"{{else}}title="节点已离线，无法查看详情"{{end}}>
-<div class="head"><div><i class="state {{if .Online}}on{{end}}" data-role="dot"></i> <span class="name">{{.NodeID}}</span><span class="nodeid">{{.Hostname}}</span><span class="offtag" data-role="offtag" style="display:{{if .Online}}none{{else}}inline-block{{end}}">已离线</span></div><span class="sub" data-role="ago">{{ago .Timestamp}}</span></div>
-<div class="chips"><span>{{.OS.Name}}</span><span>{{.OS.Architecture}}</span><span>{{.Hardware.LogicalCPUs}} CPU</span>{{if .Alias}}<span class="alias">{{.Alias}}</span>{{end}}</div>
-<div class="line"><label>CPU <b data-role="cpu">{{printf "%.1f" .Resources.CPUPercent}}%</b></label><div class="bar"><i data-role="cpubar" style="width:{{printf "%.0f" .Resources.CPUPercent}}%"></i></div></div>
-<div class="line"><label>内存 <b data-role="mem" class="{{if ge (pct .Resources.MemoryUsedBytes .Resources.MemoryTotalBytes) $.MemThreshold}}danger{{end}}">{{printf "%.1f" (pct .Resources.MemoryUsedBytes .Resources.MemoryTotalBytes)}}%</b></label><div class="bar"><i data-role="membar" class="{{if ge (pct .Resources.MemoryUsedBytes .Resources.MemoryTotalBytes) $.MemThreshold}}danger{{end}}" style="width:{{printf "%.0f" (pct .Resources.MemoryUsedBytes .Resources.MemoryTotalBytes)}}%"></i></div></div>
-{{if .Resources.Disks}}{{with index .Resources.Disks 0}}<div class="line"><label>磁盘 <b data-role="disk" class="{{if ge .UsedPercent $.DiskThreshold}}danger{{end}}">{{printf "%.1f" .UsedPercent}}%</b></label><div class="bar"><i data-role="diskbar" class="{{if ge .UsedPercent $.DiskThreshold}}danger{{end}}" style="width:{{printf "%.0f" .UsedPercent}}%"></i></div></div>{{end}}{{end}}
-<div class="net" data-role="net">负载　{{printf "%.0f" (loadPct .Resources.Load1 .Hardware.LogicalCPUs)}}%（{{printf "%.2f" .Resources.Load1}} / {{printf "%.2f" .Resources.Load5}} / {{printf "%.2f" .Resources.Load15}}）<br>网络　↓ {{rate .NetRxBps}}　↑ {{rate .NetTxBps}}<br>探测　{{if .Network.Reachable}}{{printf "%.0f ms" .Network.LatencyMS}}{{else}}不可达{{end}}</div>
-<div class="net up" data-role="sys-time">系统时间:　{{sysTime .SystemTime}}</div>
-<div data-role="alerts">{{range .Alerts}}<div class="warn">● {{.Message}}</div>{{end}}</div>
-</a>{{end}}
-</section>
-{{else}}<div class="card stat">尚未收到 Agent 上报。</div>{{end}}
-<footer class="server-info">
-<div class="card">
-<div class="si-head">Server 主机状态</div>
-<div class="si-grid">
-<div class="si-item"><label>系统</label><b>{{.Server.OSName}}</b><span class="sub">{{.Server.Hostname}} · {{.Server.Arch}}</span></div>
-<div class="si-item"><label>负载</label><b>{{printf "%.2f" .Server.Load1}} / {{printf "%.2f" .Server.Load5}} / {{printf "%.2f" .Server.Load15}}</b><span class="sub">1 / 5 / 15 分钟</span></div>
-<div class="si-item"><label>CPU</label><b>{{printf "%.1f" .Server.CPUPercent}}%</b><span class="sub">Server 主机</span></div>
-<div class="si-item"><label>内存</label><b>{{printf "%.1f" (pct .Server.MemUsedBytes .Server.MemTotalBytes)}}%</b><span class="sub">{{bytes .Server.MemUsedBytes}} / {{bytes .Server.MemTotalBytes}}</span></div>
-<div class="si-item"><label>磁盘</label><b>{{printf "%.1f" .Server.DiskUsedPct}}%</b><span class="sub">{{bytes .Server.DiskUsedBytes}} / {{bytes .Server.DiskTotalBytes}}</span></div>
-<div class="si-item"><label>数据库文件</label><b>{{bytes .Server.DBFileSize}}</b><span class="sub">{{.Server.DBPath}}</span></div>
-</div>
-</div>
-</footer>
-{{end}}`
+</html>`
