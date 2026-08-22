@@ -16,6 +16,8 @@ header{height:55px;display:flex;align-items:center;justify-content:space-between
 .sound{border:1px solid #aee9dc;background:white;border-radius:22px;padding:7px 12px;color:#20b99c;cursor:pointer;font:inherit;font-size:13px}
 .sound.off{color:#a0b0c5;border-color:#e2eaf4}
 .sound.active{border-color:#f3a6b3;background:#fff0f2;color:#e95169}
+.logout{border:1px solid #d9e4f0;background:white;border-radius:22px;padding:7px 12px;color:#5d769a;cursor:pointer;font:inherit;font-size:13px}
+.logout:hover{color:#e95169;border-color:#f3a6b3}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin:16px 0 38px}
 .card,.node{background:#fff;border:1px solid #d9e4f0;border-radius:17px;box-shadow:0 5px 20px #5470910b}
 .stat{padding:21px 24px;border-top:2px solid #39d7c4}
@@ -51,7 +53,7 @@ header{height:55px;display:flex;align-items:center;justify-content:space-between
 </head>
 <body data-memthr="{{.MemThreshold}}" data-diskthr="{{.DiskThreshold}}">
 <main class="w">
-<header><div class="brand"><i class="dot"></i>Server Monitor</div><div><button id="sound-btn" class="sound" type="button">🔔 停止报警</button> <span class="live">● 实时 · 5 秒更新</span></div></header>
+<header><div class="brand"><i class="dot"></i>Server Monitor</div><div><button id="sound-btn" class="sound" type="button">🔔 停止报警</button> <span class="live">● 实时 · 5 秒更新</span>{{if .AuthEnabled}} <form method="post" action="/logout" style="display:inline"><button type="submit" class="logout">退出登录</button></form>{{end}}</div></header>
 <section class="stats">
 <div class="card stat"><label>在线</label><b id="stat-online">{{len .Nodes}} 台</b><span class="sub"></span></div>
 <div class="card stat"><label>下行</label><b id="stat-rx">{{rate .RxRate}}</b><span class="sub">已启用网卡汇总</span></div>

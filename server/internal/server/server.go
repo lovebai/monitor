@@ -404,11 +404,12 @@ type homeData struct {
 	TxRate        float64
 	MemThreshold  float64
 	DiskThreshold float64
+	AuthEnabled   bool
 }
 
 func (h *Handler) homeData() homeData {
 	v := h.views()
-	d := homeData{groupNodes(v), v, 0, h.cfg.LatencyThresholdMS, 0, 0, h.cfg.MemoryThresholdPct, h.cfg.DiskThresholdPct}
+	d := homeData{Groups: groupNodes(v), Nodes: v, Threshold: h.cfg.LatencyThresholdMS, MemThreshold: h.cfg.MemoryThresholdPct, DiskThreshold: h.cfg.DiskThresholdPct, AuthEnabled: h.cfg.AuthEnabled}
 	for _, n := range v {
 		d.AlertCount += len(n.Alerts)
 		d.RxRate += n.NetRxBps

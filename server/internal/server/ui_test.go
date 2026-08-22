@@ -43,7 +43,8 @@ func TestHomePageOfflineCardBlocked(t *testing.T) {
 		TxRate        float64
 		MemThreshold  float64
 		DiskThreshold float64
-	}{groupNodes(v), v, 0, 500, 0, 0, 80, 80}
+		AuthEnabled   bool
+	}{groupNodes(v), v, 0, 500, 0, 0, 80, 80, true}
 	var b strings.Builder
 	if err := tmpl.Execute(&b, data); err != nil {
 		t.Fatalf("render failed: %v", err)
@@ -189,6 +190,39 @@ func TestNodesHTMLFragmentEndpoint(t *testing.T) {
 	}
 	if !strings.Contains(html, `data-grp="web"`) {
 		t.Error("nodes-html should include the node group title")
+	}
+}
+
+func TestHomePageLogoutButton(t *testing.T) {
+	funcs := template.FuncMap{
+		"pct": percent, "ago": ago, "bytes": humanBytes,
+		"rate": rate, "isUp": isUp, "ipv4s": ipv4s, "loadPct": loadPct,
+		"dur": formatUptime, "sysTime": sysTime,
+	}
+	tmpl := template.Must(template.New("page").Funcs(funcs).Parse(page))
+	render := func(auth bool) string {
+		var b strings.Builder
+		data := struct {
+			Groups        []groupView
+			Nodes         []nodeView
+			AlertCount    int
+			Threshold     float64
+			RxRate        float64
+			TxRate        float64
+			MemThreshold  float64
+			DiskThreshold float64
+			AuthEnabled   bool
+		}{nil, nil, 0, 500, 0, 0, 80, 80, auth}
+		if err := tmpl.Execute(&b, data); err != nil {
+			t.Fatalf("render failed: %v", err)
+		}
+		return b.String()
+	}
+	if html := render(true); !strings.Contains(html, "退出登录") || !strings.Contains(html, `action="/logout"`) {
+		t.Error("auth_enabled=true 时主页应显示退出登录按钮（POST /logout）")
+	}
+	if html := render(false); strings.Contains(html, "退出登录") {
+		t.Error("auth_enabled=false 时主页不应显示退出登录按钮")
 	}
 }
 
