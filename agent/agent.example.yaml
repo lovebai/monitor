@@ -1,6 +1,7 @@
 # 也可用 JSON；列表内容使用每行一个 "-"。
 server_url: http://127.0.0.1:8080
-token: changeme-0001          # 该节点独立 Token，与 server.yaml 的 agent_tokens 中本节点值一致（必填）
+# 该节点独立 Token，与 server.yaml 的 agent_tokens 中本节点值一致（必填）
+token: changeme-0001
 node_id: web-01
 alias: 生产APP1
 # 所属分组，控制台按分组展示；留空归入 DEFAULT
