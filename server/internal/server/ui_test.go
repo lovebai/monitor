@@ -44,7 +44,8 @@ func TestHomePageOfflineCardBlocked(t *testing.T) {
 		MemThreshold  float64
 		DiskThreshold float64
 		AuthEnabled   bool
-	}{groupNodes(v), v, 0, 500, 0, 0, 80, 80, true}
+		Server        serverStats
+	}{groupNodes(v), v, 0, 500, 0, 0, 80, 80, true, serverStats{Hostname: "srv1", DBPath: "monitor.db", DBFileSize: 2048}}
 	var b strings.Builder
 	if err := tmpl.Execute(&b, data); err != nil {
 		t.Fatalf("render failed: %v", err)
@@ -136,7 +137,8 @@ func TestNodesFragmentRender(t *testing.T) {
 		TxRate        float64
 		MemThreshold  float64
 		DiskThreshold float64
-	}{groupNodes([]nodeView{on}), []nodeView{on}, 0, 500, 0, 0, 80, 80}
+		Server        serverStats
+	}{groupNodes([]nodeView{on}), []nodeView{on}, 0, 500, 0, 0, 80, 80, serverStats{Hostname: "srv1"}}
 
 	var b strings.Builder
 	if err := tmpl.ExecuteTemplate(&b, "nodes", data); err != nil {
@@ -159,7 +161,8 @@ func TestNodesFragmentRender(t *testing.T) {
 		TxRate        float64
 		MemThreshold  float64
 		DiskThreshold float64
-	}{nil, nil, 0, 500, 0, 0, 80, 80}
+		Server        serverStats
+	}{nil, nil, 0, 500, 0, 0, 80, 80, serverStats{}}
 	b.Reset()
 	if err := tmpl.ExecuteTemplate(&b, "nodes", empty); err != nil {
 		t.Fatalf("render empty fragment failed: %v", err)
@@ -212,17 +215,62 @@ func TestHomePageLogoutButton(t *testing.T) {
 			MemThreshold  float64
 			DiskThreshold float64
 			AuthEnabled   bool
-		}{nil, nil, 0, 500, 0, 0, 80, 80, auth}
+			Server        serverStats
+		}{nil, nil, 0, 500, 0, 0, 80, 80, auth, serverStats{}}
 		if err := tmpl.Execute(&b, data); err != nil {
 			t.Fatalf("render failed: %v", err)
 		}
 		return b.String()
 	}
-	if html := render(true); !strings.Contains(html, "退出登录") || !strings.Contains(html, `action="/logout"`) {
-		t.Error("auth_enabled=true 时主页应显示退出登录按钮（POST /logout）")
+	if html := render(true); !strings.Contains(html, "注销") || !strings.Contains(html, `action="/logout"`) {
+		t.Error("auth_enabled=true 时主页应显示注销按钮（POST /logout）")
 	}
-	if html := render(false); strings.Contains(html, "退出登录") {
-		t.Error("auth_enabled=false 时主页不应显示退出登录按钮")
+	if html := render(false); strings.Contains(html, "注销") {
+		t.Error("auth_enabled=false 时主页不应显示注销按钮")
+	}
+}
+
+func TestHomePageServerInfoFooter(t *testing.T) {
+	funcs := template.FuncMap{
+		"pct": percent, "ago": ago, "bytes": humanBytes,
+		"rate": rate, "isUp": isUp, "ipv4s": ipv4s, "loadPct": loadPct,
+		"dur": formatUptime, "sysTime": sysTime,
+	}
+	tmpl := template.Must(template.New("page").Funcs(funcs).Parse(page))
+	st := serverStats{
+		Hostname: "srv-01", OSName: "windows", Arch: "amd64",
+		Load1: 0.55, Load5: 0.48, Load15: 0.42, CPUPercent: 23.4,
+		MemUsedBytes: 4 << 30, MemTotalBytes: 8 << 30,
+		DiskUsedPct: 62.5, DiskUsedBytes: 100 << 30, DiskTotalBytes: 160 << 30,
+		DBFileSize: 12345678, DBPath: "monitor.db",
+	}
+	var b strings.Builder
+	if err := tmpl.ExecuteTemplate(&b, "nodes", struct {
+		Groups        []groupView
+		Nodes         []nodeView
+		AlertCount    int
+		Threshold     float64
+		RxRate        float64
+		TxRate        float64
+		MemThreshold  float64
+		DiskThreshold float64
+		Server        serverStats
+	}{nil, nil, 0, 500, 0, 0, 80, 80, st}); err != nil {
+		t.Fatalf("render footer failed: %v", err)
+	}
+	html := b.String()
+	for _, want := range []string{
+		"Server 主机状态",
+		"srv-01 · amd64",
+		"0.55 / 0.48 / 0.42",
+		"23.4%",
+		"62.5%",
+		"数据库文件",
+		"monitor.db",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("server info footer missing %q", want)
+		}
 	}
 }
 

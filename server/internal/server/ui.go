@@ -47,8 +47,10 @@ header{height:55px;display:flex;align-items:center;justify-content:space-between
 .net{border-top:1px solid #e5edf7;margin-top:18px;padding-top:13px;color:#536e92;line-height:1.8}
 .net.up{margin-top:10px;padding-top:8px;color:#9db1cf;font-size:12px}
 .warn{margin-top:12px;color:#e95169;font-size:12px}
+.si-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:18px;margin:16px 0 30px}
 @media(max-width:1050px){.nodes{grid-template-columns:repeat(2,1fr)}.stats{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:600px){.nodes,.stats{grid-template-columns:1fr}.w{padding:12px}.brand{font-size:16px}}
+@media(max-width:1050px){.si-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.nodes,.stats,.si-grid{grid-template-columns:1fr}.w{padding:12px}.brand{font-size:16px}}
 </style>
 </head>
 <body data-memthr="{{.MemThreshold}}" data-diskthr="{{.DiskThreshold}}">
@@ -143,4 +145,15 @@ refresh();setInterval(refresh,5000);
 </a>{{end}}
 </section>
 {{else}}<div class="card stat">尚未收到 Agent 上报。</div>{{end}}
+<footer class="server-info">
+<div class="title">Server 主机状态</div>
+<div class="si-grid">
+<div class="card stat"><label>系统</label><b>{{.Server.OSName}}</b><span class="sub">{{.Server.Hostname}} · {{.Server.Arch}}</span></div>
+<div class="card stat"><label>负载</label><b>{{printf "%.2f" .Server.Load1}} / {{printf "%.2f" .Server.Load5}} / {{printf "%.2f" .Server.Load15}}</b><span class="sub">1 / 5 / 15 分钟</span></div>
+<div class="card stat"><label>CPU</label><b>{{printf "%.1f" .Server.CPUPercent}}%</b><span class="sub">Server 主机</span></div>
+<div class="card stat"><label>内存</label><b>{{printf "%.1f" (pct .Server.MemUsedBytes .Server.MemTotalBytes)}}%</b><span class="sub">{{bytes .Server.MemUsedBytes}} / {{bytes .Server.MemTotalBytes}}</span></div>
+<div class="card stat"><label>磁盘</label><b>{{printf "%.1f" .Server.DiskUsedPct}}%</b><span class="sub">{{bytes .Server.DiskUsedBytes}} / {{bytes .Server.DiskTotalBytes}}</span></div>
+<div class="card stat"><label>数据库文件</label><b>{{bytes .Server.DBFileSize}}</b><span class="sub">{{.Server.DBPath}}</span></div>
+</div>
+</footer>
 {{end}}`

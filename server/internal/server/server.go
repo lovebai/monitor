@@ -37,14 +37,15 @@ type Config struct {
 	Debug                bool
 }
 type Handler struct {
-	cfg       Config
-	db        *sql.DB
-	dashboard *template.Template
-	detail    *template.Template
-	login     *template.Template
-	mux       *http.ServeMux
-	mu        sync.Mutex
-	sessions  map[string]time.Time
+	cfg        Config
+	db         *sql.DB
+	dashboard  *template.Template
+	detail     *template.Template
+	login      *template.Template
+	mux        *http.ServeMux
+	serverInfo *serverInfo
+	mu         sync.Mutex
+	sessions   map[string]time.Time
 }
 type nodeView struct {
 	model.Report
@@ -135,7 +136,7 @@ func New(cfg Config) (*Handler, error) {
 	t := template.Must(template.New("dashboard").Funcs(funcs).Parse(page))
 	d := template.Must(template.New("detail").Funcs(funcs).Parse(detailPage2))
 	l := template.Must(template.New("login").Parse(loginPage))
-	h := &Handler{cfg: cfg, db: db, dashboard: t, detail: d, login: l, sessions: map[string]time.Time{}}
+	h := &Handler{cfg: cfg, db: db, dashboard: t, detail: d, login: l, sessions: map[string]time.Time{}, serverInfo: newServerInfo(cfg.DatabasePath)}
 	mux := http.NewServeMux()
 	// 公开路由：登录页/登录/登出（登出不要求已登录）与 Agent 上报（走 Bearer Token）。
 	mux.HandleFunc("GET /login", h.loginPage)
@@ -405,11 +406,12 @@ type homeData struct {
 	MemThreshold  float64
 	DiskThreshold float64
 	AuthEnabled   bool
+	Server        serverStats
 }
 
 func (h *Handler) homeData() homeData {
 	v := h.views()
-	d := homeData{Groups: groupNodes(v), Nodes: v, Threshold: h.cfg.LatencyThresholdMS, MemThreshold: h.cfg.MemoryThresholdPct, DiskThreshold: h.cfg.DiskThresholdPct, AuthEnabled: h.cfg.AuthEnabled}
+	d := homeData{Groups: groupNodes(v), Nodes: v, Threshold: h.cfg.LatencyThresholdMS, MemThreshold: h.cfg.MemoryThresholdPct, DiskThreshold: h.cfg.DiskThresholdPct, AuthEnabled: h.cfg.AuthEnabled, Server: h.serverInfo.stats()}
 	for _, n := range v {
 		d.AlertCount += len(n.Alerts)
 		d.RxRate += n.NetRxBps
