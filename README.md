@@ -47,7 +47,7 @@ powershell -ExecutionPolicy Bypass -File build.ps1
 ```powershell
 cd server
 Copy-Item server.example.yaml server.yaml   # 编辑配置后启动
-go run ./cmd -config server.yaml
+go run ./cmd                              # 省略 -config 时默认读取当前目录 server.yaml
 ```
 
 ### 发布 Release
@@ -133,7 +133,7 @@ services:
 2. 在被监控设备启动 Agent：`agent.exe -config agent.yaml`；使用 `-once` 可只采集上报一次，`Ctrl+C` 停止。
 3. 打开 `http://server:8080/` 查看仪表盘；`GET /api/v1/nodes` 获取 JSON。
 
-Server 全部命令行选项（`-config` / `-gen` / `-remove` / `-debug`）可通过 `server.exe -help` 查看。
+两端省略 `-config` 时，分别默认读取当前工作目录下的 `server.yaml`（Server）与 `agent.yaml`（Agent）。Server 全部命令行选项（`-config` / `-gen` / `-remove` / `-debug`）可通过 `server.exe -help` 查看。
 
 开启 `auth_enabled` 后，浏览器访问会先跳转到 `/login` 登录；JSON 读接口（`/api/v1/nodes`、历史接口）需携带登录会话，否则返回 401。
 
