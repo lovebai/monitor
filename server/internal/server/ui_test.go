@@ -280,6 +280,15 @@ func TestHomePageServerInfoFooter(t *testing.T) {
 	}
 }
 
+func TestPagesHaveSVGFavicon(t *testing.T) {
+	pages := map[string]string{"dashboard": page, "detail": detailPage2, "login": loginPage}
+	for name, p := range pages {
+		if !strings.Contains(p, `<link rel="icon" type="image/svg+xml"`) {
+			t.Errorf("%s page missing svg favicon link", name)
+		}
+	}
+}
+
 func TestDetailPageTopProcesses(t *testing.T) {
 	funcs := template.FuncMap{
 		"pct": percent, "ago": ago, "bytes": humanBytes,
