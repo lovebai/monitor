@@ -272,6 +272,12 @@ func TestHomePageServerInfoFooter(t *testing.T) {
 			t.Errorf("server info footer missing %q", want)
 		}
 	}
+	if !strings.Contains(html, `<div class="si-head">Server 主机状态</div>`) {
+		t.Error("server info should use single card with si-head title")
+	}
+	if got := strings.Count(html, `class="si-item"`); got != 6 {
+		t.Errorf("si-item count = %d, want 6", got)
+	}
 }
 
 func TestDetailPageTopProcesses(t *testing.T) {
