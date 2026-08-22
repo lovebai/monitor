@@ -20,12 +20,18 @@ import (
 var Version = "2026.08.20"
 
 func main() {
-	log.Printf("Server Monitor 版本: %s", Version)
 	configPath := flag.String("config", "server.yaml", "server YAML configuration file")
 	remove := flag.String("remove", "", "删除指定 node_id 的节点（需输入 6 位验证码确认）")
 	gen := flag.String("gen", "", "生成登录密码的加密哈希并写入配置文件 auth_password")
 	debug := flag.Bool("debug", false, "启用调试模式（输出详细请求与 Agent 上报日志，并开放 /debug/pprof）")
+	help := flag.Bool("help", false, "显示帮助信息")
+	flag.Usage = usage
 	flag.Parse()
+	if *help {
+		usage()
+		return
+	}
+	log.Printf("Server Monitor 版本: %s", Version)
 	if *gen != "" {
 		generatePassword(*gen, *configPath)
 		return
@@ -59,6 +65,27 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = httpServer.Shutdown(ctx)
+}
+
+// usage 打印命令行帮助信息。
+func usage() {
+	fmt.Printf(`用法: %s [选项]
+
+Server Monitor 监控服务端。Agent 主动上报，服务端负责接收、存储与展示。
+
+选项:
+  -config <文件>    指定 YAML 配置文件（默认 server.yaml）
+  -gen <密码>       生成登录密码的 PBKDF2 加密哈希并自动写入配置文件 auth_password
+  -remove <node_id> 删除指定节点（含历史指标与告警，需输入 6 位验证码确认）
+  -debug            启用调试模式：输出详细请求与 Agent 上报日志，并开放 /debug/pprof
+  -help             显示本帮助信息
+
+示例:
+  server.exe -config server.yaml
+  server.exe -gen "你的密码" -config server.yaml
+  server.exe -remove web-01
+  server.exe -debug -config server.yaml
+`, os.Args[0])
 }
 
 // generatePassword 生成登录密码的加密哈希，打印到终端并自动写入配置文件的 auth_password。

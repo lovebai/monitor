@@ -133,6 +133,8 @@ services:
 2. 在被监控设备启动 Agent：`agent.exe -config agent.yaml`；使用 `-once` 可只采集上报一次，`Ctrl+C` 停止。
 3. 打开 `http://server:8080/` 查看仪表盘；`GET /api/v1/nodes` 获取 JSON。
 
+Server 全部命令行选项（`-config` / `-gen` / `-remove` / `-debug`）可通过 `server.exe -help` 查看。
+
 开启 `auth_enabled` 后，浏览器访问会先跳转到 `/login` 登录；JSON 读接口（`/api/v1/nodes`、历史接口）需携带登录会话，否则返回 401。
 
 ### 删除节点
