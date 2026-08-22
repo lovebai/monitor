@@ -80,7 +80,7 @@ function beep(){
     audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
     if(audioCtx.state==='suspended')audioCtx.resume();
     const t=audioCtx.currentTime;
-    [[880,t],[880,t+0.18],[660,t+0.36]].forEach(function(x){
+    [[880,t],[880,t+0.18],[880,t+0.30],[660,t+0.48]].forEach(function(x){
       const f=x[0],st=x[1],o=audioCtx.createOscillator(),g=audioCtx.createGain();
       o.type='square';o.frequency.value=f;
       g.gain.setValueAtTime(0.12,st);
