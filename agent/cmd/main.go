@@ -60,7 +60,6 @@ func printAgentConfig(path string, c agent.Config) {
 	log.Printf("探测目标: %s", targetText(c.ProbeTarget))
 	log.Printf("进程检查: %s", listText(c.Processes))
 	log.Printf("服务检查: %s", listText(c.Services))
-	log.Printf("鉴权 Token: ********")
 }
 
 func groupText(g string) string {
