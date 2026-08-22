@@ -62,15 +62,13 @@ func (s *serverInfo) stats() serverStats {
 	return s.cached
 }
 
-// dbFileSize 返回数据库主文件与 WAL 文件的总大小（WAL 模式下数据可能暂存在 -wal 中）。
+// dbFileSize 返回数据库主文件（monitor.db）的实际大小，与资源管理器中看到的一致。
 func dbFileSize(path string) uint64 {
-	var n uint64
-	for _, p := range []string{path, path + "-wal"} {
-		if fi, err := os.Stat(p); err == nil && fi.Size() > 0 {
-			n += uint64(fi.Size())
-		}
+	fi, err := os.Stat(path)
+	if err != nil || fi.Size() <= 0 {
+		return 0
 	}
-	return n
+	return uint64(fi.Size())
 }
 
 func hostname() string {
