@@ -9,7 +9,7 @@ disk_threshold_percent: 80
 # metrics 历史数据保留天数，超期数据在每次 Agent 上报时自动清理
 history_retention_days: 30
 # 是否开启网页/JSON 接口登录鉴权；true 时查看页面和读取接口需要登录（Agent 上报仍走 token）
-auth_enabled: true
+auth_enabled: false
 auth_username: admin
 # 登录密码为加密哈希；执行 server.exe -gen "你的密码" 生成并自动写入本行（明文密码仍兼容但不再推荐）
 auth_password: "pbkdf2$sha256$210000$3lGYDF3hXaANJ5ZIdM2QtA$Ol1pbYfXuQW17hdweKpKauJMTfjbQ5lN2mcBr1whRDM"

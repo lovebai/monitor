@@ -53,7 +53,7 @@ header{height:55px;display:flex;align-items:center;justify-content:space-between
 </head>
 <body data-memthr="{{.MemThreshold}}" data-diskthr="{{.DiskThreshold}}">
 <main class="w">
-<header><div class="brand"><i class="dot"></i>Server Monitor</div><div><button id="sound-btn" class="sound" type="button">🔔 停止报警</button> <span class="live">● 实时 · 5 秒更新</span>{{if .AuthEnabled}} <form method="post" action="/logout" style="display:inline"><button type="submit" class="logout">退出登录</button></form>{{end}}</div></header>
+<header><div class="brand"><i class="dot"></i>Server Monitor</div><div><button id="sound-btn" class="sound" type="button">🔔 停止报警</button> <span class="live">● 实时 · 5 秒更新</span>{{if .AuthEnabled}} <form method="post" action="/logout" style="display:inline"><button type="submit" class="logout">注销</button></form>{{end}}</div></header>
 <section class="stats">
 <div class="card stat"><label>在线</label><b id="stat-online">{{len .Nodes}} 台</b><span class="sub"></span></div>
 <div class="card stat"><label>下行</label><b id="stat-rx">{{rate .RxRate}}</b><span class="sub">已启用网卡汇总</span></div>

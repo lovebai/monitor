@@ -138,10 +138,10 @@ func printServerConfig(path string, c server.FileConfig, debug bool) {
 	} else {
 		log.Printf("网页鉴权: 关闭")
 	}
-	log.Printf("Agent 独立 Token: %d 个节点（node_id 绑定）", len(c.AgentTokens))
 	if debug {
 		log.Printf("调试模式: 开启（输出请求/上报日志，/debug/pprof 可用）")
 	} else {
 		log.Printf("调试模式: 关闭")
 	}
+	log.Printf("Agent 独立 Token: %d 个节点（node_id 绑定）", len(c.AgentTokens))
 }
