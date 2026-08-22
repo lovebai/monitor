@@ -42,6 +42,7 @@ type Handler struct {
 	dashboard *template.Template
 	detail    *template.Template
 	login     *template.Template
+	mux       *http.ServeMux
 	mu        sync.Mutex
 	sessions  map[string]time.Time
 }
@@ -134,7 +135,24 @@ func New(cfg Config) (*Handler, error) {
 	t := template.Must(template.New("dashboard").Funcs(funcs).Parse(page))
 	d := template.Must(template.New("detail").Funcs(funcs).Parse(detailPage2))
 	l := template.Must(template.New("login").Parse(loginPage))
-	return &Handler{cfg: cfg, db: db, dashboard: t, detail: d, login: l, sessions: map[string]time.Time{}}, nil
+	h := &Handler{cfg: cfg, db: db, dashboard: t, detail: d, login: l, sessions: map[string]time.Time{}}
+	mux := http.NewServeMux()
+	// 公开路由：登录页/登录/登出（登出不要求已登录）与 Agent 上报（走 Bearer Token）。
+	mux.HandleFunc("GET /login", h.loginPage)
+	mux.HandleFunc("POST /login", h.handleLogin)
+	mux.HandleFunc("POST /logout", h.logout)
+	mux.HandleFunc("POST /api/v1/reports", h.ingest)
+	// 受保护路由：开启 auth_enabled 后需登录（页面重定向到 /login，API 返回 401）。
+	mux.Handle("GET /{$}", h.requireAuth(http.HandlerFunc(h.home)))
+	mux.Handle("GET /api/v1/nodes", h.requireAuth(http.HandlerFunc(h.json)))
+	mux.Handle("GET /api/v1/nodes-html", h.requireAuth(http.HandlerFunc(h.nodesHTML)))
+	mux.Handle("GET /api/v1/nodes/{nodeID}/history", h.requireAuth(http.HandlerFunc(h.history)))
+	mux.Handle("GET /nodes/{nodeID}", h.requireAuth(http.HandlerFunc(h.nodeDetail)))
+	if cfg.Debug {
+		mux.Handle("/debug/pprof/", h.requireAuth(http.DefaultServeMux))
+	}
+	h.mux = mux
+	return h, nil
 }
 func (h *Handler) Close() error { return h.db.Close() }
 
@@ -145,42 +163,27 @@ func (h *Handler) logf(format string, args ...any) {
 	}
 }
 
-// 还是用gin舒服,不想改了
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.logf("HTTP %s %s 来源=%s", r.Method, r.URL.Path, r.RemoteAddr)
-	if h.cfg.AuthEnabled && r.URL.Path != "/api/v1/reports" && r.URL.Path != "/login" && r.URL.Path != "/logout" && !h.isAuthed(r) {
-		if strings.HasPrefix(r.URL.Path, "/api/") {
-			w.Header().Set("Content-Type", "application/json")
-			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+// requireAuth 是登录鉴权中间件：开启 auth_enabled 时，
+// 未登录请求页面重定向到 /login，JSON/API 请求返回 401。
+func (h *Handler) requireAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if h.cfg.AuthEnabled && !h.isAuthed(r) {
+			if strings.HasPrefix(r.URL.Path, "/api/") {
+				w.Header().Set("Content-Type", "application/json")
+				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+				return
+			}
+			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		http.Redirect(w, r, "/login", http.StatusFound)
-		return
-	}
-	switch {
-	case r.Method == http.MethodPost && r.URL.Path == "/api/v1/reports":
-		h.ingest(w, r)
-	case r.Method == http.MethodGet && r.URL.Path == "/login":
-		h.loginPage(w, r)
-	case r.Method == http.MethodPost && r.URL.Path == "/login":
-		h.handleLogin(w, r)
-	case r.Method == http.MethodPost && r.URL.Path == "/logout":
-		h.logout(w, r)
-	case r.Method == http.MethodGet && r.URL.Path == "/api/v1/nodes":
-		h.json(w, r)
-	case r.Method == http.MethodGet && r.URL.Path == "/api/v1/nodes-html":
-		h.nodesHTML(w, r)
-	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/nodes/") && strings.HasSuffix(r.URL.Path, "/history"):
-		h.history(w, r)
-	case h.cfg.Debug && strings.HasPrefix(r.URL.Path, "/debug/pprof"):
-		http.DefaultServeMux.ServeHTTP(w, r)
-	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/nodes/"):
-		h.nodeDetail(w, r)
-	case r.Method == http.MethodGet && r.URL.Path == "/":
-		h.home(w, r)
-	default:
-		http.NotFound(w, r)
-	}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ServeHTTP 使用 Go 1.22+ http.ServeMux 的方法 + 路径参数路由。
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.logf("HTTP %s %s 来源=%s", r.Method, r.URL.Path, r.RemoteAddr)
+	h.mux.ServeHTTP(w, r)
 }
 func (h *Handler) isAuthed(r *http.Request) bool {
 	c, err := r.Cookie("session")
@@ -431,8 +434,8 @@ func (h *Handler) nodesHTML(w http.ResponseWriter, r *http.Request) {
 	_ = h.dashboard.ExecuteTemplate(w, "nodes", h.homeData())
 }
 func (h *Handler) nodeDetail(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/nodes/")
-	if id == "" || strings.Contains(id, "/") {
+	id := r.PathValue("nodeID")
+	if id == "" {
 		http.NotFound(w, r)
 		return
 	}
@@ -485,7 +488,7 @@ func (h *Handler) points(id string, limit int) []metricPoint {
 	return p
 }
 func (h *Handler) history(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/v1/nodes/"), "/history")
+	id := r.PathValue("nodeID")
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Content-Type", "application/json")
