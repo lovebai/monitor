@@ -60,6 +60,11 @@ pre{background:#f6fafd;border:1px solid #e2eaf4;border-radius:10px;padding:14px;
 <div><label>登录用户名</label><input id="s-user" value="admin"></div>
 <div><label>登录密码</label><input id="s-pass" type="password"></div>
 </div>
+<div class="row">
+<input id="s-pass-hash" readonly placeholder="点击「生成加密哈希」后自动填入，将写入 auth_password">
+<button class="btn ghost small" id="gen-hash" type="button" title="浏览器本地 PBKDF2-HMAC-SHA256（210000 次迭代 + 随机盐），与服务端 server.exe -gen 输出格式一致">生成加密哈希</button>
+</div>
+<div class="reg-hint">哈希在本机浏览器内生成、不会上传；不生成则输出明文密码（服务端仍兼容，但不推荐）。</div>
 </div>
 <label>Agent 独立 Token（node_id 绑定，必填至少一项）</label>
 <div id="token-rows"></div>
@@ -117,6 +122,18 @@ function renderTokenRows(){
 $('add-token').onclick=()=>{tokenRows.push({node:'',token:''});renderTokenRows()};
 $('s-auth').onchange=()=>{$('s-auth-fields').style.display=$('s-auth').checked?'block':'none'};
 $('rand-token').onclick=()=>{$('a-token').value=randToken()};
+$('gen-hash').onclick=async()=>{
+  const err=$('s-err'),pwd=$('s-pass').value;
+  if(!pwd){err.className='err';err.textContent='请先填写登录密码再生成哈希';return}
+  const btn=$('gen-hash');btn.disabled=true;
+  try{
+    $('s-pass-hash').value=await pbkdf2Hash(pwd);
+    err.className='err ok';err.textContent='已生成加密哈希，将写入 auth_password';
+  }catch(e){
+    err.className='err';err.textContent='生成失败：'+e.message;
+  }
+  btn.disabled=false;
+};
 $('reg-server').onclick=()=>{
   const node=val('a-node',''),token=val('a-token','');
   const err=$('a-err');
@@ -141,7 +158,12 @@ $('gen-server').onclick=()=>{
   L.push('disk_threshold_percent: '+num('s-disk',80));
   L.push('history_retention_days: '+num('s-ret',30));
   L.push('auth_enabled: '+auth);
-  if(auth){L.push('auth_username: '+val('s-user','admin'));L.push('auth_password: '+yq(val('s-pass','')))}
+  if(auth){
+    L.push('auth_username: '+val('s-user','admin'));
+    const hash=$('s-pass-hash').value.trim();
+    if(hash){L.push('# 登录密码为加密哈希（PBKDF2-SHA256，随机盐）');L.push('auth_password: "'+hash+'"')}
+    else L.push('auth_password: '+yq(val('s-pass','')));
+  }
   L.push('agent_tokens:');
   rows.forEach(t=>L.push('  '+t.node.trim()+': '+t.token.trim()));
   $('out-server').textContent=L.join('\n');
@@ -192,6 +214,19 @@ function randToken(){
   let s='';
   for(let i=0;i<16;i++)s+=chars[out[i]%chars.length];
   return s;
+}
+// 与服务端 server.exe -gen 一致的 PBKDF2-HMAC-SHA256 哈希（210000 次迭代、16 字节盐、32 字节密钥）
+function b64NoPad(buf){
+  let s='';
+  for(const b of new Uint8Array(buf))s+=String.fromCharCode(b);
+  return btoa(s).replace(/=+$/,'');
+}
+async function pbkdf2Hash(password){
+  const enc=new TextEncoder();
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const key=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:210000},key,256);
+  return 'pbkdf2$sha256$210000$'+b64NoPad(salt)+'$'+b64NoPad(bits);
 }
 renderTokenRows();
 </script>

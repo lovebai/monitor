@@ -11,10 +11,11 @@
 3. 快捷操作：Agent 面板的“登记到 Server agent_tokens”按钮会把当前节点 Token 直接加入左侧 Server 登记列表，避免两边手填不一致。
 
 节点 Token 输入框旁的“随机”按钮可一键生成 16 位英文大小写组合（基于 `crypto.getRandomValues` 加密安全随机数）。
+开启登录鉴权后，密码输入框旁的“生成加密哈希”按钮会在浏览器本地用 Web Crypto 计算 PBKDF2-HMAC-SHA256 哈希（210000 次迭代 + 随机盐），生成的 `server.yaml` 将写入加密后的 `auth_password`，与服务端 `server.exe -gen` 输出格式完全一致；不生成哈希则输出明文密码（服务端仍兼容，但不推荐）。
 
 ## 生成格式说明
 
-- 生成的 `server.yaml` 与 `server/internal/server/config.go` 的解析格式一致（`agent_tokens` 为缩进映射）。
+- 生成的 `server.yaml` 与 `server/internal/server/config.go` 的解析格式一致（`agent_tokens` 为缩进映射）；`auth_password` 支持加密哈希或明文（明文仅用于迁移兼容）。
 - 生成的 `agent.yaml` 与 `agent/internal/agent/config.go` 的解析格式一致（支持 JSON 或简单 YAML，本工具输出简单 YAML）。
 - 值中若包含 `#` 或引号会自动加引号，避免被当作注释。
 
