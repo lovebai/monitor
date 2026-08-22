@@ -26,7 +26,7 @@
 
 ## 项目结构
 
-- `server/`：接收上报、SQLite 历史与告警事件、监控控制台。
+- `server/`：接收上报、SQLite 历史与告警事件、监控控制台（HTTP 路由使用标准库 `http.ServeMux` 的方法 + 路径参数路由，无 Web 框架依赖）。
 - `agent/`：部署在被监控机器上的采集器。
 - `tools/`：可视化配置生成器（浏览器直接打开 `tools/config-generator.html`，即可生成 `server.yaml` / `agent.yaml`）。
 - `bin/`：构建产物（`server.exe` / `agent.exe` / `server-linux-amd64` / `agent-linux-amd64`）。
@@ -142,6 +142,25 @@ server.exe -remove <node_id>
 ```
 
 程序会先打印 6 位随机验证码，输入一致后才会删除数据库中对应节点（连同历史指标与告警），删除后主页不再显示该节点。
+
+### HTTP 接口
+
+服务端路由基于 Go 标准库 `http.ServeMux`（1.22+ 方法 + 路径参数，无第三方依赖），对外接口如下：
+
+| 方法与路径 | 说明 | 鉴权 |
+|---|---|---|
+| `GET /` | 主页仪表盘 | 登录 |
+| `GET /login` | 登录页 | 公开 |
+| `POST /login` | 提交登录表单 | 公开 |
+| `POST /logout` | 登出 | 公开 |
+| `POST /api/v1/reports` | Agent 上报 | Bearer Token |
+| `GET /api/v1/nodes` | 节点列表 JSON | 登录 |
+| `GET /api/v1/nodes-html` | 主页节点区 HTML 片段（供 5 秒局部刷新） | 登录 |
+| `GET /api/v1/nodes/{node_id}/history` | 单节点历史指标 JSON | 登录 |
+| `GET /nodes/{node_id}` | 节点详情页 | 登录 |
+| `GET /debug/pprof/*` | 性能分析（仅 `-debug` 模式注册） | 登录 |
+
+未匹配的路径返回 404；方法不匹配（如 `GET /api/v1/reports`）返回 405 并带 `Allow` 头。开启 `auth_enabled` 后，未登录访问页面会重定向到 `/login`，访问 `/api/` 接口返回 401 JSON（`/api/v1/reports` 仍走 Bearer Token，不受登录鉴权影响）。
 
 ## 注册为 Windows 服务
 
