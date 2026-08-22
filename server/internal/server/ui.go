@@ -47,7 +47,7 @@ header{height:55px;display:flex;align-items:center;justify-content:space-between
 .net{border-top:1px solid #e5edf7;margin-top:18px;padding-top:13px;color:#536e92;line-height:1.8}
 .net.up{margin-top:10px;padding-top:8px;color:#9db1cf;font-size:12px}
 .warn{margin-top:12px;color:#e95169;font-size:12px}
-.server-info{margin-bottom:30px}
+.server-info{margin-top:1rem;margin-bottom:1rem}
 .server-info .card{padding:18px 22px}
 .si-head{font-size:17px;font-weight:750;margin-bottom:16px}
 .si-head:before{content:'//';color:#2ed5c3;margin-right:8px}
